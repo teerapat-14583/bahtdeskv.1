@@ -1,0 +1,6 @@
+// Paste your Supabase project values here (Project Settings > API).
+// The anon key is meant to be public. Row Level Security in supabase_schema.sql protects the data.
+window.BAHT_DESK_CONFIG = {
+  url: "https://vjualhfnguaffahekuhx.supabase.co",
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqdWFsaGZuZ3VhZmZhaGVrdWh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMwNDc5MDgsImV4cCI6MjEwODYyMzkwOH0.TfSiacm97r_jBo49shggaAMqyda1EMWNmRBr0Oj7CGE"
+};
