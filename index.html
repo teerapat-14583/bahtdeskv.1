@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Baht Desk</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#f2f6fc;--surf:#fff;--ink:#0f2540;--mut:#5b6f8a;--line:#d9e3f1;--gold:#a87414;--goldbg:#f6ecd5;--silv:#56636f;--silvbg:#e4e8ec;--up:#12795a;--dn:#b3382c;--cubg:#f5e2d6;--cu:#a4552b;--fxbg:#e1e9f5;--fxc:#3a5f9a;--bidbg:#fbe9e6;--askbg:#e3f3ec;--acc:#1d4ed8;--onacc:#fff;--tint:#e8f0fe;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1730;--surf:#12223f;--ink:#e6edf8;--mut:#8fa3c2;--line:#22365a;--gold:#e0b355;--goldbg:#2d2614;--silv:#b4c0cb;--silvbg:#26313b;--up:#4fcf9f;--dn:#f0806f;--cubg:#33231b;--cu:#e29a73;--fxbg:#1d2a3d;--fxc:#8fb0e6;--bidbg:#3a2220;--askbg:#16322a;--acc:#4f8cff;--onacc:#fff;--tint:#1a2f55}}
+:root[data-theme="dark"]{--bg:#0b1730;--surf:#12223f;--ink:#e6edf8;--mut:#8fa3c2;--line:#22365a;--gold:#e0b355;--goldbg:#2d2614;--silv:#b4c0cb;--silvbg:#26313b;--up:#4fcf9f;--dn:#f0806f;--cubg:#33231b;--cu:#e29a73;--fxbg:#1d2a3d;--fxc:#8fb0e6;--bidbg:#3a2220;--askbg:#16322a;--acc:#4f8cff;--onacc:#fff;--tint:#1a2f55}
+html{color-scheme:light dark;scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.4 "IBM Plex Sans",system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.app{max-width:480px;margin:0 auto;padding:14px 14px 96px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+h1{font-size:20px;font-weight:600;margin:0;letter-spacing:-.01em}
+h2{font-size:15px;font-weight:600;margin:18px 2px 8px}
+.live{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--up)}
+button{font:inherit;color:inherit;cursor:pointer}
+.spots{display:grid;grid-template-columns:1fr 1fr;gap:10px}.spots .spot{min-width:0}.sub{margin-top:0}.card .big{font-size:24px}
+.spot{border-radius:14px;padding:14px}
+.spot.g{background:var(--goldbg)}.spot.s{background:var(--silvbg)}.spot.c{background:var(--cubg)}.spot.f{background:var(--fxbg)}.spot.c .n{color:var(--cu)}.spot.f .n{color:var(--fxc)}
+.spot .n{font-size:13px;font-weight:500}
+.spot.g .n{color:var(--gold)}.spot.s .n{color:var(--silv)}
+.spot .v{font-size:26px;font-weight:600;letter-spacing:-.02em;margin:4px 0 2px}
+.spot .u{font-size:12px;color:var(--mut)}
+.chg{font-size:13px;font-weight:500}
+.up{color:var(--up)}.dn{color:var(--dn)}
+.fx{display:flex;justify-content:space-between;font-size:13px;color:var(--mut);margin:10px 2px 0}
+.card{background:var(--surf);border-radius:14px;padding:14px;margin-bottom:10px}
+.card .t{font-weight:600}.card .sub{font-size:12px;color:var(--mut)}
+.bb{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.bb div{border-radius:10px;padding:10px}
+.bb .b{background:var(--bidbg)}.bb .a{background:var(--askbg)}
+.bb small{font-size:12px;font-weight:600;display:block}
+.bb .b small,.bb .b strong{color:var(--dn)}.bb .a small,.bb .a strong{color:var(--up)}
+.bb strong{font-size:20px;font-weight:600}
+.big{font-size:26px;font-weight:600;margin-top:6px}
+.list{background:var(--surf);border-radius:14px;overflow:hidden}
+.row{display:flex;justify-content:space-between;gap:10px;padding:13px 14px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row b{font-weight:600}
+.tabs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--line);border-radius:10px;padding:3px;gap:3px;margin-bottom:12px}
+.tabs button{border:0;background:transparent;padding:9px 6px;border-radius:8px;font-weight:500;color:var(--mut)}
+.tabs button[aria-selected="true"]{background:var(--surf);color:var(--ink)}
+.fld{display:grid;grid-template-columns:1fr 130px;gap:8px;align-items:center;margin-bottom:8px;font-size:14px}
+.fld small{display:block;color:var(--mut);font-size:12px}
+input,select{font:inherit;font-size:15px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%}
+.wrow{display:grid;grid-template-columns:1fr 90px;gap:8px;margin:12px 0}
+.res{background:var(--bg);border-radius:12px;padding:14px;margin-top:6px}
+.res .big{margin-top:2px}
+.pri{background:var(--acc);color:var(--onacc);border:0;border-radius:8px;padding:10px 16px;font-weight:500}
+.pg{font-size:12px;color:var(--mut)}
+.foot{font-size:12px;color:var(--mut);margin:12px 2px}
+.nav{position:fixed;left:0;right:0;bottom:0;background:var(--surf);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));z-index:5}
+.nav div{max-width:480px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);gap:2px}
+.nav button{border:0;background:transparent;padding:10px 2px;border-radius:8px;font-size:12px;font-weight:500;color:var(--mut)}
+.nav button[aria-current="page"]{color:var(--ink);background:var(--bg);font-weight:600}
+table{border-collapse:collapse;width:100%;min-width:600px;font-size:13px}th{font-size:12px;font-weight:600;color:var(--mut);text-align:left;padding:10px 12px;background:var(--bg);white-space:nowrap}td{padding:12px;border-top:1px solid var(--line);white-space:nowrap;vertical-align:top}.r{text-align:right}.tw{background:var(--surf);border-radius:14px;overflow-x:auto}
+.bd{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600}.bd.Gold{background:var(--goldbg);color:var(--gold)}.bd.Silver{background:var(--silvbg);color:var(--silv)}.bd.Copper{background:var(--cubg);color:var(--cu)}.bd.Buy{background:var(--askbg);color:var(--up)}.bd.Sell{background:var(--bidbg);color:var(--dn)}
+.bd.Booked{background:var(--askbg);color:var(--up)}.bd.Refine{background:rgba(139,92,246,.16);color:#8b5cf6}.bd.Settled,.bd.Cancelled{background:var(--line);color:var(--mut)}
+.kpi{background:var(--surf);border-radius:14px;padding:14px;min-width:0}.kpi small{font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;display:block}.kpi .v{font-size:19px;font-weight:600;margin:4px 0 2px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}.combo{background:linear-gradient(135deg,#1d5fd6,#1aa3e0);color:#fff}.combo .n,.combo .u{color:#fff}
+.term{border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px}.term b{font-size:17px}
+.ab{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:4px 8px;font-size:12px;margin-right:4px}
+.ov{position:fixed;inset:0;background:rgba(10,18,24,.55);z-index:30;display:flex;align-items:center;justify-content:center;padding:16px}.md{background:var(--surf);border-radius:16px;padding:18px;width:100%;max-width:420px;max-height:90vh;overflow:auto}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+header{background:linear-gradient(135deg,#0a3a8a,#1d6fe0);border-radius:16px;padding:14px 16px;box-shadow:0 4px 14px rgba(29,78,216,.25)}
+header h1{color:#fff}header .live{color:rgba(255,255,255,.88)}
+.card,.list,.kpi,.tw{border:1px solid var(--line);box-shadow:0 1px 3px rgba(15,37,64,.06)}
+.tabs button[aria-selected="true"]{background:var(--acc);color:var(--onacc)}
+.nav{box-shadow:0 -2px 10px rgba(15,37,64,.06)}
+.nav button[aria-current="page"]{color:var(--acc);background:var(--tint)}
+th{background:var(--tint);color:var(--acc)}
+.pri{background:var(--acc);color:var(--onacc)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline-color:var(--acc)}
+input:focus,select:focus{border-color:var(--acc)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="app">
+<header><h1>Baht Desk</h1><div style="text-align:right"><div class="live"><span class="dot"></span><span id="stamp"></span></div><button id="authBtn" class="ab" style="margin-top:6px;background:#fff;color:#0a3a8a;border:0">Admin</button></div></header>
+<section id="p_home" data-d></section>
+<section id="p_trade" data-d hidden></section>
+<section id="p_port" data-d hidden></section>
+<section id="p_hist" data-d hidden></section>
+<section id="p_set" data-d hidden></section>
+</div>
+<nav class="nav"><div>
+<button data-p="home" aria-current="page">Home</button>
+<button data-p="trade">Buy-Sell</button>
+<button data-p="port">Portfolio</button>
+<button data-p="hist">History</button>
+<button data-p="set">Setting</button>
+</div></nav>
+<div id="authModal" class="ov" hidden><div class="md"><div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Admin sign in</h2><button id="authClose" class="ab">Close</button></div><p class="pg">Only the Baht Desk administrator can change prices and settings.</p><label class="pg" for="authEmail">Email</label><input id="authEmail" type="email" autocomplete="email" style="margin:4px 0 10px"><label class="pg" for="authPassword">Password</label><input id="authPassword" type="password" autocomplete="current-password" style="margin:4px 0 12px"><div id="authMsg" class="pg" role="status" style="margin-bottom:10px"></div><button id="authSubmit" class="pri" style="width:100%">Sign in</button></div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="supabase-config.js"></script>
+<script type="application/json" id="cfg">{"fx":33.778,"gold":4013.69,"silver":54.04,"lme":14327.5,"gBid":3.5,"gAsk":1.5,"gAdd":1750,"gDed":2500,"oDed":5,"gta":{"bb":63900,"bo":64100,"oo":64900,"tax":62625.96,"at":"25/10/2569 09:00 (round 1)"},"anc":{"s":3996.9,"fx":33.7569},"oB":0,"oA":0,"sB":0,"sAdd":100,"demo":false,"at":"","hist":[],"prem":[-13,-21,-41,-40,-50,-53,-70,-82,-90]}</script>
+<script>
+var KG_GOLD=32.148,KG_SILVER=32.1507,BAHT_G=15.244,BAHT=BAHT_G/31.1035*0.965;
+var GR=["ทองแดงปอก","ทองแดงช็อต","สายโทร","ทองแดงใหญ่","ทองแดงเล็ก","ทองแดงบดสะอาด","ทองแดงบดผสม","ทองแดงชุบขาว","ทองแดงชุบขาว (ชิ้นงาน)"];
+var C={};try{C=JSON.parse(document.getElementById("cfg").textContent)}catch(e){}
+var D={fx:33.778,fxB:33.734,fxA:33.821,gold:3996.9,silver:54.05,lme:14336.95,gBid:3.5,gAsk:1.5,gAdd:1750,gDed:2500,oDed:5,gta:{bb:63900,bo:64100,oo:64900,tax:62625.96,at:"25/10/2569 09:00 (round 1)"},anc:{s:3996.9,fx:33.7569},tDays:3,rDays:5,phase:1,oB:0,oA:0,sB:0,sAdd:100,demo:false,at:"",hist:[],prem:[-13,-21,-41,-40,-50,-53,-70,-82,-90]};
+for(var k in D)if(C[k]==null)C[k]=D[k];
+var prev={gold:C.gold,silver:C.silver,lme:C.lme},page="home",left=60,isOwner=false,HT="gold";
+var T={p:"g99",side:"bid",unit:"g",w:"",rev:null,done:null};
+function $(i){return document.getElementById(i)}
+function f(n,d){return n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d})}
+function r2(x){return Math.round(x*100)/100}
+function chg(a,b){var d=a-b,p=b?d/b*100:0;return '<span class="'+(d>=0?"up":"dn")+'">'+(d>=0?"▲ ":"▼ ")+f(Math.abs(d),2)+" ("+f(Math.abs(p),2)+"%)</span>"}
+function P(){
+  var g99o=r2(C.gold*KG_GOLD*C.fxA+C.gAdd),g99={b:r2(C.gold*KG_GOLD*C.fxB+C.gAdd-C.gDed),o:g99o};
+  var an=C.anc,afb=an.fb||an.fx,afa=an.fa||an.fx,rb=(C.gold*C.fxB)/(an.s*afb),ro=(C.gold*C.fxA)/(an.s*afa);
+  var bar={b:r2(C.gta.bb*rb),o:r2(C.gta.bo*ro)};
+  var orn={b:r2(bar.b*(1-C.oDed/100)),o:r2(C.gta.oo*ro),t:r2(C.gta.tax*ro)};
+  var s99={b:r2(C.silver*KG_SILVER*C.fxB-C.sB),o:r2(C.silver*KG_SILVER*C.fxA+C.sAdd)};
+  var s925={b:r2(s99.b*0.925),o:r2(s99.o*0.925)};
+  var cu=Math.round(C.lme*C.fxB/1000);
+  return{g99:g99,bar:bar,orn:orn,s99:s99,s925:s925,cu:cu};
+}
+function cPx(i){return Math.round(P().cu+(C.prem[i]||0))}
+function bb(t,u,x){return '<div class="card"><div class="t">'+t+'</div><div class="sub">'+u+'</div><div class="bb"><div class="b"><small>Bid</small><strong>'+f(x.b,2)+'</strong></div><div class="a"><small>Offer</small><strong>'+f(x.o,2)+'</strong></div></div>'+(x.t?'<div class="pg" style="margin-top:8px">ฐานภาษี (tax base) ฿'+f(x.t,2)+'</div>':'')+'</div>'}
+function spot(c,n,v,u,ch){return '<div class="spot '+c+'"><div class="n">'+n+'</div><div class="v">'+v+'</div><div class="u">'+u+'</div><div class="chg">'+(ch||"&nbsp;")+'</div></div>'}
+function home(){
+  var p=P();
+  var h='<div class="spots">'+spot("g","Gold (XAU/USD)",f(C.gold,2),"USD / troy oz",chg(C.gold,prev.gold))+spot("s","Silver (XAG/USD)",f(C.silver,2),"USD / troy oz",chg(C.silver,prev.silver))+spot("c","Copper (LME)",f(C.lme,2),"USD / ton",chg(C.lme,prev.lme))+spot("f","Exchange rate",f(C.fx,4),"USD / THB","Bid "+f(C.fxB,3)+" · Ask "+f(C.fxA,3))+'</div>'+
+  '<div class="fx"><span></span><span'+(C.demo?'':' hidden')+'>Next update in <b id="cd">'+left+'</b>s</span></div>'+
+  '<div class="tabs" style="margin-top:16px"><button data-h="gold">Gold</button><button data-h="silver">Silver</button><button data-h="copper">Copper</button></div>';
+  if(HT==="gold")h+=bb("Gold 99.99%","THB / kg",p.g99)+bb("Gold 96.5% แท่ง","THB / gold baht",p.bar)+bb("Gold 96.5% รูปพรรณ","THB / gold baht",p.orn);
+  else if(HT==="silver")h+=bb("Silver 99.99%","THB / kg",p.s99)+bb("Silver 92.5%","THB / kg",p.s925)+'<p class="foot">VAT not included yet.</p>';
+  else{h+='<div class="card"><div class="t">LME Copper Price (Flat)</div><div class="big">'+f(p.cu,0)+' <span class="pg">THB/kg</span></div></div><div class="list">';
+    GR.forEach(function(n,i){h+='<div class="row"><span>'+n+'</span><b>'+f(cPx(i),0)+' <span class="pg">THB/kg</span></b></div>'});h+='</div>'}
+  if(C.phase!==2)h+='<p class="foot">Indicative prices for information only. Please contact Baht Desk to place an order.</p>';
+  $("p_home").innerHTML=h;
+  [].forEach.call($("p_home").querySelectorAll("[data-h]"),function(b){b.setAttribute("aria-selected",b.getAttribute("data-h")===HT)});
+}
+var PL=[["g99","Gold 99.99%","THB/kg"],["bar","Gold 96.5% แท่ง","THB/gold baht"],["orn","Gold 96.5% รูปพรรณ","THB/gold baht"],["s99","Silver 99.99%","THB/kg"],["s925","Silver 92.5%","THB/kg"]];
+function tradeInit(){
+  var o=PL.map(function(x){return '<option value="'+x[0]+'">'+x[1]+'</option>'}).join("")+GR.map(function(n,i){return '<option value="c'+i+'">Copper · '+n+'</option>'}).join("");
+  $("p_trade").innerHTML='<h2>Buy-Sell</h2><div class="card"><div id="tform"><select id="tp">'+o+'</select><div class="tabs" id="ts" style="margin-top:10px"><button data-s="bid">Customer sells · Bid</button><button data-s="ask">Customer buys · Offer</button></div>'+
+  '<div class="bb" style="grid-template-columns:1fr;margin-top:0"><div id="tlive"></div></div>'+
+  '<div class="wrow"><input id="tw" type="number" min="0" step="any" inputmode="decimal" placeholder="Enter weight"><select id="tu"><option value="g">g</option><option value="kg">kg</option></select></div>'+
+  '<div class="res"><div class="pg">Total</div><div class="big" id="tr2">฿0</div><div class="pg" id="tr3"></div></div>'+
+  '<p style="margin:12px 0 0"><button class="pri" id="tgo" style="width:100%">Review order</button></p></div>'+
+  '<div id="trev" hidden></div></div>';
+  $("p_trade").addEventListener("click",function(e){
+    var s=e.target.getAttribute("data-s"),id=e.target.id;
+    if(s){T.side=s;tradeCalc()}
+    else if(id==="tgo"){var c=cur();if(c.g>0){T.rev=c;T.done=null;tradeCalc()}}
+    else if(id==="tbk"){T.rev=null;tradeCalc()}
+    else if(id==="tok"){confirmOrder()}
+    else if(id==="tnew"){T.rev=null;T.done=null;T.w="";$("tw").value="";tradeCalc()}
+  });
+  $("p_trade").addEventListener("input",function(e){if(e.target.id==="tw"||e.target.id==="tu"||e.target.id==="tp"){T.w=$("tw").value;T.unit=$("tu").value;T.p=$("tp").value;tradeCalc()}});
+}
+function cur(){
+  var p=P(),isC=T.p.charAt(0)==="c",rate,unit,perG,dec=2;
+  if(isC){rate=cPx(+T.p.slice(1));unit="THB/kg";perG=rate/1000;dec=0}
+  else{var x=p[T.p],v=T.side==="bid"?x.b:x.o;rate=v;unit=T.p==="bar"||T.p==="orn"?"THB/gold baht":"THB/kg";perG=unit==="THB/kg"?v/1000:v/BAHT_G}
+  var w=parseFloat(T.w),g=isFinite(w)&&w>0?(T.unit==="kg"?w*1000:w):0,tot=perG*g;tot=dec?r2(tot):Math.round(tot);
+  var sel=$("tp");
+  return{n:sel.options[sel.selectedIndex].text,isC:isC,side:(isC||T.side==="bid")?"Customer sells · Bid":"Customer buys · Offer",amt:isFinite(w)&&w>0?w:0,au:T.unit,pk:T.p,rate:rate,unit:unit,dec:dec,g:g,tot:tot};
+}
+function loadTx(){try{return JSON.parse(localStorage.getItem("bd_tx")||"[]")}catch(e){return[]}}
+function confirmOrder(){
+  var c=T.rev;if(!c)return;
+  c.id="BD-"+Date.now().toString(36).toUpperCase();c.t=stamp();c.ts=Date.now();c.st="Booked";c.due=c.ts+C.tDays*864e5;
+  var tx=loadTx();tx.unshift(c);tx=tx.slice(0,100);
+  try{localStorage.setItem("bd_tx",JSON.stringify(tx))}catch(e){}
+  T.done=c;T.rev=null;hist();tradeCalc();
+}
+function tradeCalc(){
+  var c=cur(),box=$("tlive");
+  [].forEach.call($("ts").children,function(b){b.setAttribute("aria-selected",b.getAttribute("data-s")===T.side)});
+  $("ts").hidden=c.isC;
+  box.className=(c.isC||T.side==="bid")?"b":"a";
+  box.innerHTML='<small>'+c.side+' · live</small><strong>฿'+f(c.rate,c.dec)+'</strong> <span class="pg">'+c.unit+'</span>';
+  $("tr2").textContent="฿"+f(c.tot,c.dec);
+  $("tr3").textContent=c.g>0?f(c.g,c.g%1?2:0)+" g = "+f(c.g/1000,3)+" kg":"Enter a weight in g or kg.";
+  $("tgo").disabled=!(c.g>0);$("tgo").style.opacity=c.g>0?1:.5;
+  var r=T.rev,d=T.done,rv=$("trev");
+  rv.hidden=!(r||d);
+  if(d){rv.innerHTML='<div class="t">Order confirmed</div><div class="pg">'+d.id+' · '+d.t+'</div><div class="res" style="margin-top:10px"><b>'+d.n+'</b><div class="pg">'+(d.side?d.side+' · ':'')+f(d.g,d.g%1?2:0)+' g at ฿'+f(d.rate,d.dec)+' '+d.unit+'</div><div class="big">฿'+f(d.tot,d.dec)+'</div></div><p class="pg">Saved to Orders in History on this device.</p><button class="pri" id="tnew" style="width:100%">New order</button>'}
+  else if(r){rv.innerHTML='<div class="t">Confirm your order</div><div class="pg">The price below is held while you review.</div><div class="res" style="margin-top:10px"><b>'+r.n+'</b><div class="pg">'+(r.side?r.side+'<br>':'')+'Rate ฿'+f(r.rate,r.dec)+' '+r.unit+'<br>Weight '+f(r.g,r.g%1?2:0)+' g ('+f(r.g/1000,3)+' kg)</div><div class="pg" style="margin-top:8px">Total</div><div class="big">฿'+f(r.tot,r.dec)+'</div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px"><button class="pri" id="tbk" style="background:transparent;color:var(--ink);border:1px solid var(--line)">Back</button><button class="pri" id="tok">Confirm</button></div>'}
+  if(r||d)rv.innerHTML='<div class="ov"><div class="md">'+rv.innerHTML+'</div></div>';
+}
+function hist(){
+  var tx=loadTx(),o='<h2>Orders</h2>';
+  if(!tx.length)o+='<div class="card pg">No orders on this device yet. Confirmed Buy-Sell orders appear here.</div>';
+  else{o+='<div class="tw"><table><thead><tr><th>Order ref</th><th>Metal</th><th>Side</th><th class="r">Amount</th><th class="r">Confirmed price</th><th class="r">Value (THB)</th></tr></thead><tbody>';
+    tx.forEach(function(r){
+      var m=r.n.indexOf("Gold")===0?"Gold":r.n.indexOf("Silver")===0?"Silver":"Copper",sd=(r.side&&r.side.indexOf("buys")>-1)?"Buy":"Sell",au=r.au||"g",am=r.amt!=null?r.amt:r.g;
+      o+='<tr><td><b>'+r.id+'</b><div class="pg">'+r.t+'</div></td><td><span class="bd '+m+'">'+m+'</span><div class="pg">'+r.n.replace(/^(Gold|Silver|Copper) ?·? ?/,"")+'</div></td><td><span class="bd '+sd+'">'+sd+'</span><div class="pg">'+stL(r.st||"Booked")+'</div></td><td class="r">'+f(am,am%1?2:0)+' '+au+'</td><td class="r">฿'+f(r.rate,r.dec)+'<div class="pg">'+r.unit+'</div></td><td class="r"><b>฿'+f(r.tot,r.dec)+'</b></td></tr>'});
+    o+='</tbody></table></div>'}
+  var h=o+'<h2>Price history</h2>';
+  if(!C.hist.length){$("p_hist").innerHTML=h+'<div class="card pg">No history yet. Each time the admin saves new prices, a record appears here.</div>';return}
+  h+='<div class="list">';
+  C.hist.forEach(function(r){h+='<div class="row" style="display:block"><b>'+r.t+'</b><div class="pg">Gold '+f(r.g,2)+' · Silver '+f(r.s,2)+' · Copper '+f(r.l,2)+' · USD/THB '+f(r.fx,4)+'</div><div class="pg">Gold 99.99% bid '+f(r.gb||0,2)+' / offer '+f(r.go||r.ga||0,2)+' THB/kg</div><div class="pg">Silver 99.99% bid '+f(r.sb||0,2)+' / offer '+f(r.so||r.sp||0,2)+' THB/kg</div></div>'});
+  $("p_hist").innerHTML=h+'</div>';
+}
+function metalOf(n){return n.indexOf("Gold")===0?"Gold":n.indexOf("Silver")===0?"Silver":"Copper"}
+function pur(n){var m=n.match(/\d+(\.\d+)?%/);return m?m[0]:"–"}
+function stL(x){return{Booked:"Booked",Refine:"Sent for Refine",Settled:"Settled",Cancelled:"Cancelled"}[x]||x}
+function saveTx(tx){try{localStorage.setItem("bd_tx",JSON.stringify(tx))}catch(e){}}
+function norm(r){if(!r.st)r.st="Booked";if(!r.ts){var v=parseInt((r.id||"").slice(3),36);r.ts=isFinite(v)?v:Date.now()}if(!r.due)r.due=r.ts+(r.st==="Refine"?C.rDays:C.tDays)*864e5;return r}
+function pkOf(r){if(r.pk)return r.pk;for(var i=0;i<PL.length;i++)if(PL[i][1]===r.n)return PL[i][0];for(var j=0;j<GR.length;j++)if(r.n==="Copper · "+GR[j])return"c"+j;return"g99"}
+function mkt(r){var k=pkOf(r),g;if(k.charAt(0)==="c")g=cPx(+k.slice(1))/1000;else{var x=P()[k],v=(r.side&&r.side.indexOf("buys")>-1)?x.o:x.b;g=(k==="bar"||k==="orn")?v/BAHT_G:v/1000}return g*r.g}
+function dstr(t){return new Date(t).toISOString().slice(0,10)}
+function port(){
+  var tx=loadTx().map(norm),act=tx.filter(function(r){return r.st==="Booked"||r.st==="Refine"}),now=Date.now();
+  var M={Gold:{kg:0,v:0,mv:0},Silver:{kg:0,v:0,mv:0},Copper:{kg:0,v:0,mv:0}},RF={Gold:0,Silver:0},bv=0,bk=0,mvA=0,due=0,tr=0,rf=0,ov=0,rfv=0;
+  act.forEach(function(r){var m=metalOf(r.n),kg=r.g/1000;due+=r.tot;if(r.st==="Refine")rfv+=r.tot;
+    if(r.due<now)ov+=r.tot;else if(r.st==="Refine")rf+=r.tot;else tr+=r.tot;
+    if(r.st==="Booked"){var mv=mkt(r);M[m].kg+=kg;M[m].v+=r.tot;M[m].mv+=mv;bk+=kg;bv+=r.tot;mvA+=mv}
+    else if(m!=="Copper")RF[m]+=kg});
+  var B=function(x){return "฿"+f(x,2)},K=function(x){return f(x,2)+" kg"};
+  var h='<div class="bar" style="display:flex;justify-content:space-between;align-items:center;margin:0 2px 8px"><h2 style="margin:0">Portfolio summary</h2><span class="pg">Updated '+new Date().toLocaleTimeString("en-GB")+' <button class="ab" data-a="rr">Refresh</button></span></div>'+
+  '<div class="g2">'+spot("g","Gold booked",K(M.Gold.kg),"Current market value",B(M.Gold.mv))+spot("s","Silver booked",K(M.Silver.kg),"Current market value",B(M.Silver.mv))+spot("c","Copper booked",K(M.Copper.kg),"Current market value","฿"+f(M.Copper.mv,0))+
+  spot("combo","Combined position",K(bk),"Combined market value",B(mvA)).replace('class="spot combo"','class="spot combo" style="background:linear-gradient(135deg,#1d5fd6,#1aa3e0);color:#fff"').replace('class="chg"','class="chg" style="color:#fff"')+'</div>'+
+  '<p style="margin:0 0 14px"><button class="pri" data-a="new">+ New booking</button></p>'+
+  '<div class="g2"><div class="kpi"><small>Gold booked value</small><div class="v">'+B(M.Gold.v)+'</div></div><div class="kpi"><small>Silver booked value</small><div class="v">'+B(M.Silver.v)+'</div></div>'+
+  '<div class="kpi"><small>Copper booked value</small><div class="v">฿'+f(M.Copper.v,0)+'</div></div><div class="kpi"><small>Refine booked value</small><div class="v">'+B(rfv)+'</div></div></div>'+
+  '<div class="kpi" style="margin-bottom:6px"><small>Total amount due</small><div class="v dn">'+B(bv)+'</div><div class="pg">Trade within '+C.tDays+' days</div></div>'+
+  '<h2>Booked by metal</h2><div class="list">';
+  ["Gold","Silver","Copper"].forEach(function(m){h+='<div class="row"><span><span class="bd '+m+'">'+m+'</span><div class="pg">Amount booked</div></span><span style="text-align:right"><b>'+K(M[m].kg)+'</b><div class="pg">Value '+(m==="Copper"?"฿"+f(M[m].v,0):B(M[m].v))+'</div></span></div>'});
+  h+='</div><h2>Sent for refining</h2><div class="g2"><div class="spot g"><div class="n">Gold</div><div class="v">'+K(RF.Gold)+'</div></div><div class="spot s"><div class="n">Silver</div><div class="v">'+K(RF.Silver)+'</div></div></div>'+
+  '<h2>Settlement terms</h2><div class="term" style="background:var(--askbg)"><span><b style="font-size:14px;color:var(--up)">Trade amount due</b><div class="pg">Settlement within '+C.tDays+' days</div></span><b>'+B(tr)+'</b></div>'+
+  '<div class="term" style="background:rgba(139,92,246,.14)"><span><b style="font-size:14px;color:#8b5cf6">Refine amount due</b><div class="pg">Settlement within '+C.rDays+' days</div></span><b>'+B(rf)+'</b></div>'+
+  '<div class="term" style="background:var(--bidbg)"><span><b style="font-size:14px;color:var(--dn)">Overdue</b><div class="pg">Past settlement date</div></span><b class="dn">'+B(ov)+'</b></div>'+
+  '<h2>Active bookings</h2>';
+  if(!act.length)h+='<div class="card pg">No active bookings. Confirm an order in Buy-Sell to create one.</div>';
+  else{h+='<div class="tw"><table style="min-width:900px"><thead><tr><th>Metal</th><th>Side</th><th class="r">Amount (kg)</th><th>Purity</th><th class="r">Confirmed price</th><th class="r">Value (THB)</th><th>Status</th><th class="r">Amount due</th><th>Due date</th><th>Actions</th></tr></thead><tbody>';
+    act.forEach(function(r){var m=metalOf(r.n),sd=(r.side&&r.side.indexOf("buys")>-1)?"Buy":"Sell";
+      h+='<tr><td><span class="bd '+m+'">'+m+'</span></td><td><span class="bd '+sd+'">'+sd+'</span></td><td class="r">'+f(r.g/1000,2)+'</td><td>'+pur(r.n)+'</td><td class="r">฿'+f(r.rate,r.dec)+'<div class="pg">'+r.unit+'</div></td><td class="r"><b>฿'+f(r.tot,r.dec)+'</b></td><td><span class="bd '+r.st+'">'+stL(r.st)+'</span></td><td class="r dn">฿'+f(r.tot,r.dec)+'</td><td class="'+(r.due<now?"dn":"")+'">'+dstr(r.due)+'</td><td>'+
+      (r.st==="Booked"&&m!=="Copper"?'<button class="ab" data-a="rf" data-id="'+r.id+'">Refine</button>':'')+'<button class="ab" data-a="ok" data-id="'+r.id+'" title="Settle">✓ Settle</button><button class="ab" data-a="x" data-id="'+r.id+'" title="Cancel">Cancel</button></td></tr>'});
+    h+='</tbody></table></div>'}
+  $("p_port").innerHTML=h;
+}
+$("p_port").addEventListener("click",function(e){
+  var b=e.target.closest("[data-a]");if(!b)return;var a=b.getAttribute("data-a");
+  if(a==="new"){page="trade";render();window.scrollTo(0,0);return}
+  if(a==="rr"){port();return}
+  var id=b.getAttribute("data-id"),tx=loadTx().map(norm);
+  tx.forEach(function(r){if(r.id!==id)return;if(a==="rf"){r.st="Refine";r.due=Date.now()+C.rDays*864e5}else if(a==="ok")r.st="Settled";else if(a==="x")r.st="Cancelled"});
+  saveTx(tx);hist();port();
+});
+function fld(l,id,v,sm){return '<div class="fld"><div>'+l+(sm?'<small>'+sm+'</small>':'')+'</div><input id="'+id+'" type="number" step="any" inputmode="decimal" value="'+v+'"></div>'}
+function setp(){
+  if(!isOwner){$("p_set").innerHTML='<h2>Setting</h2><div class="card pg">Settings are managed by the Baht Desk admin.</div>';return}
+  var h='<h2>App phase</h2><div class="card"><div class="fld"><div>Phase<small>1 = customers see prices only. 2 = customers can book.</small></div><select id="a_ph"><option value="1">1 · Prices only</option><option value="2"'+(C.phase===2?' selected':'')+'>2 · Prices and booking</option></select></div></div><h2>Admin settings</h2><div class="card">'+fld("USD/THB last","a_fx",C.fx)+fld("USD/THB bid","a_fb",C.fxB,"used for all bid prices")+fld("USD/THB ask","a_fa",C.fxA,"used for all offer prices")+fld("Gold spot (USD/oz)","a_g",C.gold)+fld("Silver spot (USD/oz)","a_s",C.silver)+fld("Copper LME CSP (USD/ton)","a_l",C.lme,"LME cash settlement price (CSP)")+'</div>'+
+  '<h2>Gold 96.5% from Gold Traders Association</h2><div class="card">'+fld("Bar bid (รับซื้อ)","a_bb",C.gta.bb,"THB per gold baht")+fld("Bar offer (ขายออก)","a_bo",C.gta.bo,"THB per gold baht")+fld("Ornament offer (ขายออก)","a_oo",C.gta.oo,"THB per gold baht")+fld("Ornament tax base (ฐานภาษี)","a_tx",C.gta.tax,"THB per gold baht")+'<div class="fld"><div>Announcement<small>Date, time and round</small></div><input id="a_at" type="text" value="'+C.gta.at+'"></div><p class="pg">When you change these numbers, they are matched to the spot and USD/THB entered above. After that, prices move with spot × USD/THB.</p></div>'+
+  '<h2>Gold 99.99% and silver adjustments</h2><div class="card">'+fld("Gold 99.99% add-on","a_ga",C.gAdd,"THB per kg, added to the offer")+fld("Gold 99.99% bid deduction","a_gd",C.gDed,"THB per kg, taken off the offer")+fld("Ornament bid deduction","a_od",C.oDed,"% off the bar bid")+fld("Silver bid deduction","a_sb",C.sB,"THB per kg")+fld("Silver offer add-on","a_sa",C.sAdd,"THB per kg")+'</div>'+
+  '<h2>Settlement terms</h2><div class="card">'+fld("Trade settlement","a_td",C.tDays,"days after booking")+fld("Refine settlement","a_rd",C.rDays,"days after sending for refining")+'</div>'+
+  '<h2>Copper adjustment vs copper price (THB/kg)</h2><div class="card">';
+  GR.forEach(function(n,i){h+=fld(n,"a_p"+i,C.prem[i])});
+  h+='<div class="fld"><div>Demo price movement<small>Simulates a 1-minute feed</small></div><select id="a_d"><option value="0">Off</option><option value="1"'+(C.demo?" selected":"")+'>On</option></select></div></div><button class="pri" id="save">Save and publish</button> <span id="msg" class="pg"></span>';
+  $("p_set").innerHTML=h;$("save").onclick=save;
+}
+function num(id,d){var v=parseFloat($(id).value);return isFinite(v)?v:d}
+function stamp(){return new Date().toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}
+async function save(){
+  prev={gold:C.gold,silver:C.silver,lme:C.lme};
+  C.fx=num("a_fx",C.fx);C.fxB=num("a_fb",C.fxB);C.fxA=num("a_fa",C.fxA);C.gold=num("a_g",C.gold);C.silver=num("a_s",C.silver);C.lme=num("a_l",C.lme);var g=C.gta,n={bb:num("a_bb",g.bb),bo:num("a_bo",g.bo),oo:num("a_oo",g.oo),tax:num("a_tx",g.tax),at:$("a_at").value||g.at};
+  var ch=n.bb!==g.bb||n.bo!==g.bo||n.oo!==g.oo||n.tax!==g.tax;
+  C.gta=n;if(ch)C.anc={s:C.gold,fb:C.fxB,fa:C.fxA};
+  C.gAdd=num("a_ga",C.gAdd);C.gDed=num("a_gd",C.gDed);C.oDed=num("a_od",C.oDed);C.sB=num("a_sb",C.sB);C.sAdd=num("a_sa",C.sAdd);
+  C.tDays=num("a_td",C.tDays);C.rDays=num("a_rd",C.rDays);C.prem=GR.map(function(n,i){return num("a_p"+i,C.prem[i])});C.demo=$("a_d").value==="1";C.phase=+$("a_ph").value;C.at=stamp();
+  var p=P(),rec={t:C.at,g:C.gold,s:C.silver,fx:C.fx,l:C.lme,gb:p.g99.b,go:p.g99.o,sb:p.s99.b,so:p.s99.o};
+  if(!sb||!isOwner||!sessionUser){$("msg").textContent="Please sign in as admin.";return}
+  $("msg").textContent="Saving…";
+  var data=Object.assign({},C);delete data.hist;
+  var r=await sb.from("settings").upsert({id:1,data:data,updated_by:sessionUser.id,updated_at:new Date().toISOString()});
+  if(r.error){$("msg").textContent="Could not save: "+r.error.message;return}
+  await sb.from("price_history").insert({created_by:sessionUser.id,record:rec});
+  await loadHist();render();
+  $("msg").textContent="Saved. Customers see the new prices within a minute.";
+}
+function allowed(){return C.phase===2?["home","trade","port","hist","set"]:(isOwner?["home","set"]:["home"])}
+function render(){
+  $("stamp").textContent=C.demo?"Updated "+new Date().toLocaleTimeString("en-GB"):(C.at?"Updated "+C.at:"Live");
+  var al=allowed();if(al.indexOf(page)<0)page="home";home();hist();port();
+  ["home","trade","port","hist","set"].forEach(function(p){$("p_"+p).hidden=p!==page});
+  document.querySelector(".nav").hidden=al.length<2;document.querySelector(".nav div").style.gridTemplateColumns="repeat("+al.length+",1fr)";
+  [].forEach.call(document.querySelectorAll(".nav button"),function(b){b.hidden=al.indexOf(b.getAttribute("data-p"))<0;if(b.getAttribute("data-p")===page)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current")});
+  tradeCalc();
+}
+$("p_home").addEventListener("click",function(e){var h=e.target.getAttribute("data-h");if(h){HT=h;home()}});
+document.querySelector(".nav").addEventListener("click",function(e){var p=e.target.getAttribute("data-p");if(p){page=p;render();window.scrollTo(0,0)}});
+setInterval(function(){
+  if(!C.demo)return;left--;var cd=$("cd");if(cd)cd.textContent=left;
+  if(left<=0){left=60;prev={gold:C.gold,silver:C.silver,lme:C.lme};C.gold*=1+(Math.random()-.5)*0.002;C.silver*=1+(Math.random()-.5)*0.004;C.lme*=1+(Math.random()-.5)*0.003;render()}
+},1000);
+tradeInit();setp();render();
+var sb=null,sessionUser=null;
+try{var cs=window.BAHT_DESK_CONFIG;if(window.supabase&&cs&&cs.url&&cs.anonKey&&!/YOUR_/.test(cs.url+cs.anonKey))sb=window.supabase.createClient(cs.url,cs.anonKey)}catch(e){}
+async function loadHist(){
+  if(!sb)return;
+  var r=await sb.from("price_history").select("record").order("created_at",{ascending:false}).limit(60);
+  if(!r.error&&r.data)C.hist=r.data.map(function(x){return x.record});
+}
+async function loadSettings(){
+  if(!sb)return;
+  var r=await sb.from("settings").select("data").eq("id",1).maybeSingle();
+  if(r.data&&r.data.data){var d=r.data.data;if(d.gold!==C.gold||d.silver!==C.silver||d.lme!==C.lme)prev={gold:C.gold,silver:C.silver,lme:C.lme};for(var k in d)if(k!=="hist")C[k]=d[k]}
+  await loadHist();render();
+}
+async function syncSession(){
+  isOwner=false;sessionUser=null;
+  if(sb){
+    var r=await sb.auth.getSession();sessionUser=r.data.session&&r.data.session.user||null;
+    if(sessionUser){var pr=await sb.from("profiles").select("role").eq("id",sessionUser.id).maybeSingle();isOwner=!!(pr.data&&pr.data.role==="admin")}
+  }
+  $("authBtn").textContent=sessionUser?"Sign out":"Admin";
+  setp();render();
+}
+$("authBtn").addEventListener("click",async function(){
+  if(sessionUser&&sb){await sb.auth.signOut();await syncSession();return}
+  $("authMsg").textContent=sb?"":"Backend is not configured yet. See SETUP.md.";$("authModal").hidden=false;$("authEmail").focus();
+});
+$("authClose").addEventListener("click",function(){$("authModal").hidden=true});
+$("authSubmit").addEventListener("click",async function(){
+  if(!sb)return;
+  var em=$("authEmail").value.trim(),pw=$("authPassword").value;
+  if(!em||!pw){$("authMsg").textContent="Enter your email and password.";return}
+  $("authSubmit").disabled=true;$("authMsg").textContent="Signing in…";
+  var r=await sb.auth.signInWithPassword({email:em,password:pw});
+  $("authSubmit").disabled=false;
+  if(r.error){$("authMsg").textContent=r.error.message;return}
+  $("authPassword").value="";await syncSession();
+  if(isOwner){$("authModal").hidden=true}else{$("authMsg").textContent="This account is not an administrator.";await sb.auth.signOut();await syncSession()}
+});
+(async function(){
+  if(!sb)return;
+  sb.auth.onAuthStateChange(function(){setTimeout(syncSession,0)});
+  await loadSettings();await syncSession();
+  setInterval(loadSettings,60000);
+})();
+</script>
+</body>
+</html>
