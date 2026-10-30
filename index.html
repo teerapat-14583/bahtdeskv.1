@@ -96,9 +96,254 @@ input:focus,select:focus{border-color:var(--acc)}
 <button data-p="hist">History</button>
 <button data-p="set">Setting</button>
 </div></nav>
-<script type="application/json" id="cfg">{"fx":33.7569,"gold":3996.9,"silver":54.05,"lme":14336.95,"gBid":3.5,"gAsk":1.5,"gAdd":1750,"gDed":2500,"oDed":5,"gta":{"bb":63900,"bo":64100,"oo":64900,"tax":62625.96,"at":"25/10/2569 09:00 (round 1)"},"anc":{"s":3996.9,"fx":33.7569},"oB":0,"oA":0,"sB":0,"sAdd":100,"demo":false,"at":"","hist":[],"prem":[-13,-21,-41,-40,-50,-53,-70,-82,-90]}</script>
+<script type="application/json" id="cfg">{"fx":33.7569,"gold":3996.9,"silver":54.05,"lme":14555,"luT":1793376780000,"luBy":"Teerapat","gBid":3.5,"gAsk":1.5,"gAdd":1750,"gDed":2500,"oDed":5,"gta":{"bb":63900,"bo":64100,"oo":64900,"tax":62625.96,"at":"25/10/2569 09:00 (round 1)"},"anc":{"s":3996.9,"fx":33.7569},"oB":0,"oA":0,"sB":0,"sAdd":100,"demo":false,"at":"","hist":[],"prem":[-13,-21,-41,-40,-50,-53,-70,-82,-90]}</script>
 <script>
-var KG_GOLD=32.148,KG_SILVER=32.1507,BAHT_G=15.244,BAHT=BAHT_G/31.1035*0.965,LB_TON=2204.62262;
+/*
+ * PMG pricing engine, version 1.0.0
+ *
+ * Exact decimal arithmetic (BigInt, no floating point). Works in Node and in the browser.
+ * Inputs may be strings or numbers; strings are safest ("33.7569"). Results are strings.
+ *
+ * Rounding rule: every price is rounded ONCE, at the end, half up (a tie such as 1.005 goes to 1.01).
+ * The only intermediate rounding is where the shop's own rule says a rounded price feeds the next one
+ * (see "feeds" notes below), because the customer sees and relies on the rounded number.
+ */
+(function (root, factory) {
+  if (typeof module === "object" && module.exports) module.exports = factory();
+  else root.PMGPricing = factory();
+})(typeof self !== "undefined" ? self : this, function () {
+  "use strict";
+
+  var VERSION = "1.1.1";
+
+  // Named constants. Change one only by releasing a new VERSION.
+  var CONSTANTS = {
+    TROY_OZ_G: "31.1034768",      // grams per troy ounce, exact definition. Reference only, not used in prices
+    OZ_G_BAHT: "31.1035",         // grams per troy ounce used for baht-weight prices. Shop convention (matches your 11 quotes)
+    BAHT_G: "15.244",             // grams per Thai gold baht-weight
+    BAHT_PURITY: "0.965",         // Thai gold 96.5%
+    OZ_PER_KG_GOLD: "32.148",     // troy oz per kg used for gold. Shop convention, confirmed 30 Oct 2026
+    OZ_PER_KG_SILVER: "32.1507",  // troy oz per kg used for silver. Confirmed 30 Oct 2026
+    LB_PER_TON: "2204.62262",     // pounds per metric ton (COMEX copper feed conversion)
+    SILVER_925: "0.925"           // sterling purity
+  };
+
+  // ---------- exact decimal ----------
+  function Dec(n, s) { this.n = n; this.s = s; } // value = n / 10^s
+  var P10 = {};
+  function pow10(k) { return P10[k] || (P10[k] = 10n ** BigInt(k)); }
+
+  function numStr(x) {
+    if (!isFinite(x)) throw new Error("not a finite number: " + x);
+    var t = String(x);
+    if (/e/i.test(t)) t = x.toFixed(20).replace(/0+$/, "").replace(/\.$/, "");
+    return t;
+  }
+  function D(x) {
+    if (x instanceof Dec) return x;
+    var t = typeof x === "number" ? numStr(x) : String(x).trim();
+    var m = /^(-?)(\d+)(?:\.(\d+))?$/.exec(t);
+    if (!m) throw new Error("not a decimal: " + x);
+    var f = m[3] || "";
+    var n = BigInt(m[2] + f);
+    return new Dec(m[1] ? -n : n, f.length);
+  }
+  function align(a, b) {
+    var s = Math.max(a.s, b.s);
+    return [a.n * pow10(s - a.s), b.n * pow10(s - b.s), s];
+  }
+  function add(a, b) { var q = align(D(a), D(b)); return new Dec(q[0] + q[1], q[2]); }
+  function sub(a, b) { var q = align(D(a), D(b)); return new Dec(q[0] - q[1], q[2]); }
+  function mul(a, b) { a = D(a); b = D(b); return new Dec(a.n * b.n, a.s + b.s); }
+  // integer division with half-up rounding (ties away from zero)
+  function divRound(num, den) {
+    if (den === 0n) throw new Error("division by zero");
+    var neg = (num < 0n) !== (den < 0n);
+    var an = num < 0n ? -num : num, ad = den < 0n ? -den : den;
+    var q = an / ad, r = an % ad;
+    if (2n * r >= ad) q += 1n;
+    return neg ? -q : q;
+  }
+  // a / b rounded to `dp` decimal places
+  function divTo(a, b, dp) {
+    a = D(a); b = D(b);
+    var num = a.n * pow10(dp + b.s), den = b.n * pow10(a.s);
+    return new Dec(divRound(num, den), dp);
+  }
+  function roundTo(a, dp) {
+    a = D(a);
+    if (a.s <= dp) return new Dec(a.n * pow10(dp - a.s), dp);
+    return new Dec(divRound(a.n, pow10(a.s - dp)), dp);
+  }
+  function str(a, dp) {
+    a = roundTo(a, dp);
+    var neg = a.n < 0n, v = (neg ? -a.n : a.n).toString();
+    if (dp === 0) return (neg ? "-" : "") + v;
+    while (v.length <= dp) v = "0" + v;
+    return (neg ? "-" : "") + v.slice(0, v.length - dp) + "." + v.slice(v.length - dp);
+  }
+  function positive(name, x) {
+    var d = D(x);
+    if (d.n <= 0n) throw new Error(name + " must be greater than zero");
+    return d;
+  }
+  function nonNeg(name, x) {
+    var d = D(x);
+    if (d.n < 0n) throw new Error(name + " must not be negative");
+    return d;
+  }
+
+  function audit(rule, inputs, used) {
+    var c = {};
+    used.forEach(function (k) { c[k] = CONSTANTS[k]; });
+    return { version: VERSION, rule: rule, constants: c, inputs: inputs };
+  }
+
+  // ---------- products ----------
+
+  // Gold 99.99%, THB per kg.  offer = round2(gold * 32.148 * fx + add);  bid = round2(offer - deduct)
+  // feeds: the bid is taken from the rounded offer.
+  function gold99(i) {
+    var gold = positive("gold", i.gold), fx = positive("fx", i.fx);
+    var add_ = nonNeg("add", i.add == null ? 0 : i.add), ded = nonNeg("deduct", i.deduct == null ? 0 : i.deduct);
+    var offer = roundTo(add(mul(mul(gold, CONSTANTS.OZ_PER_KG_GOLD), fx), add_), 2);
+    var bid = roundTo(sub(offer, ded), 2);
+    return { bid: str(bid, 2), offer: str(offer, 2), unit: "THB/kg",
+      audit: audit("gold99.v1", i, ["OZ_PER_KG_GOLD"]) };
+  }
+
+  // Gold 96.5% bar and ornament, THB per baht-weight.
+  // Starts from the Gold Traders Association announcement and moves it by the change in (spot * fx) since
+  // the announcement (the "anchor"). ratio = (gold*fx) / (anchorGold*anchorFx).
+  //   bar.bid   = round2(gtaBarBid * ratio)          bar.offer = round2(gtaBarOffer * ratio)
+  //   orn.offer = round2(gtaOrnOffer * ratio)        orn.taxBase = round2(gtaTax * ratio)
+  //   orn.bid   = round2(bar.bid * (100 - ornDeductPct) / 100)   feeds: uses the rounded bar bid
+  function goldBaht96(i) {
+    var gold = positive("gold", i.gold), fx = positive("fx", i.fx);
+    var aG = positive("anchorGold", i.anchorGold), aF = positive("anchorFx", i.anchorFx);
+    var num = mul(gold, fx), den = mul(aG, aF);
+    // divide once from the exact product; that single division is the only rounding
+    function movedExact(x) {
+      var top = mul(positive("gta price", x), num);
+      return divTo(top, den, 2);
+    }
+    var barBid = movedExact(i.gtaBarBid), barOffer = movedExact(i.gtaBarOffer);
+    var ornOffer = movedExact(i.gtaOrnOffer), tax = movedExact(i.gtaTax);
+    var ded = nonNeg("ornDeductPct", i.ornDeductPct == null ? 0 : i.ornDeductPct);
+    var ornBid = divTo(mul(barBid, sub(100, ded)), 100, 2);
+    return {
+      bar: { bid: str(barBid, 2), offer: str(barOffer, 2) },
+      ornament: { bid: str(ornBid, 2), offer: str(ornOffer, 2), taxBase: str(tax, 2) },
+      unit: "THB/baht-weight",
+      audit: audit("goldBaht96.v1", i, [])
+    };
+  }
+
+  // Silver, THB per kg.  base = silver * 32.1507 * fx (not rounded)
+  //   s99.bid = round2(base - bidDeduct)   s99.offer = round2(base + offerAdd)
+  //   s925 = round2(s99 * 0.925)           feeds: 92.5% is taken from the rounded 99.99% price
+  function silver(i) {
+    var s = positive("silver", i.silver), fx = positive("fx", i.fx);
+    var base = mul(mul(s, CONSTANTS.OZ_PER_KG_SILVER), fx);
+    var bid = roundTo(sub(base, nonNeg("bidDeduct", i.bidDeduct == null ? 0 : i.bidDeduct)), 2);
+    var offer = roundTo(add(base, nonNeg("offerAdd", i.offerAdd == null ? 0 : i.offerAdd)), 2);
+    return {
+      s99: { bid: str(bid, 2), offer: str(offer, 2) },
+      s925: { bid: str(mul(bid, CONSTANTS.SILVER_925), 2), offer: str(mul(offer, CONSTANTS.SILVER_925), 2) },
+      unit: "THB/kg",
+      audit: audit("silver.v1", i, ["OZ_PER_KG_SILVER", "SILVER_925"])
+    };
+  }
+
+  // Copper flat price, THB per kg, whole baht.  flat = round0(lme * fx / 1000)
+  // Grade price = round0(flat + adjustment); adjustment is usually negative and may be a decimal.
+  function copper(i) {
+    var lme = positive("lme", i.lme), fx = positive("fx", i.fx);
+    var flat = divTo(mul(lme, fx), 1000, 0);
+    var grades = (i.adjustments || []).map(function (a) { return str(add(flat, a), 0); });
+    return { flat: str(flat, 0), grades: grades, unit: "THB/kg", audit: audit("copper.v1", i, []) };
+  }
+
+  // Order total for a weight. rate is a price from above.
+  //   unit "kg":   total = rate * grams / 1000
+  //   unit "baht": total = rate * grams / 15.244      (rate is per baht-weight)
+  // One division at the end, then rounded to dp (2 for gold and silver, 0 for copper).
+  function orderTotal(i) {
+    var rate = positive("rate", i.rate), g = positive("grams", i.grams);
+    var dp = i.dp == null ? 2 : i.dp;
+    var top = mul(rate, g), total;
+    if (i.unit === "kg") total = divTo(top, 1000, dp);
+    else if (i.unit === "baht") total = divTo(top, CONSTANTS.BAHT_G, dp);
+    else throw new Error("unit must be kg or baht");
+    return { total: str(total, dp), audit: audit("orderTotal.v1", i, i.unit === "baht" ? ["BAHT_G"] : []) };
+  }
+
+  // THEORETICAL valuation of Thai 96.5% gold, THB per baht-weight. NOT a dealer quote.
+  //   bid = (spot - bidSpread) * 15.244 / 31.1035 * fx * 0.965     offer = (spot + askSpread) * ...
+  // This is the formula printed on the website's price table. It is a reference for comparison only.
+  function theoreticalBaht96(i) {
+    var spot = positive("spot", i.spot), fx = positive("fx", i.fx);
+    var bs = nonNeg("bidSpread", i.bidSpread == null ? "3.5" : i.bidSpread);
+    var as = nonNeg("askSpread", i.askSpread == null ? "1.5" : i.askSpread);
+    function at(px) {
+      var top = mul(mul(mul(px, CONSTANTS.BAHT_G), fx), CONSTANTS.BAHT_PURITY);
+      return divTo(top, CONSTANTS.OZ_G_BAHT, 2);
+    }
+    return { bid: str(at(sub(spot, bs)), 2), offer: str(at(add(spot, as)), 2), unit: "THB/baht-weight",
+      priceType: "theoretical",
+      audit: audit("theoreticalBaht96.v1", i, ["BAHT_G", "BAHT_PURITY", "OZ_G_BAHT"]) };
+  }
+
+  // Value of a weight of metal at its purity, in THB. No dealer margin, add-on or spread.
+  //   gold, unit baht : spot * fx * (baht * 15.244 g) / 31.1035 * purity
+  //   gold, unit g/kg : spot * fx * 32.148 oz/kg * kg * purity
+  //   silver, g/kg    : spot * fx * 32.1507 oz/kg * kg * purity
+  //   copper, kg/t    : lme * fx / 1000 * kg   (no purity), spot is USD per metric ton
+  // Rounded once to 2 decimals, half up.
+  function valuation(i) {
+    var spot = positive("spot", i.spot), fx = positive("fx", i.fx), w = positive("weight", i.weight);
+    var metal = i.metal, unit = i.unit, purity = metal === "copper" ? D(1) : positive("purity", i.purity);
+    if (purity.n > pow10(purity.s)) throw new Error("purity must not exceed 1");
+    var base = mul(spot, fx), used = [], rule;
+    if (metal === "gold" && unit === "baht") {
+      var grams = mul(w, CONSTANTS.BAHT_G);
+      var top = mul(mul(base, grams), purity);
+      used = ["BAHT_G", "OZ_G_BAHT"]; rule = "valuation.goldBaht.v1";
+      return { value: str(divTo(top, CONSTANTS.OZ_G_BAHT, 2), 2), unit: "THB", priceType: "theoretical",
+        audit: audit(rule, i, used) };
+    }
+    if (metal === "gold" || metal === "silver") {
+      var perOz = metal === "gold" ? CONSTANTS.OZ_PER_KG_GOLD : CONSTANTS.OZ_PER_KG_SILVER;
+      if (unit !== "kg" && unit !== "g") throw new Error("unit must be g or kg (or baht for gold)");
+      // grams are converted to kg by shifting the decimal point, so nothing is rounded
+      var kgExact = unit === "kg" ? w : new Dec(w.n, w.s + 3);
+      return { value: str(mul(mul(mul(base, perOz), kgExact), purity), 2), unit: "THB", priceType: "theoretical",
+        audit: audit("valuation." + metal + ".v1", i, [metal === "gold" ? "OZ_PER_KG_GOLD" : "OZ_PER_KG_SILVER"]) };
+    }
+    if (metal === "copper") {
+      var kgc = unit === "kg" ? w : unit === "t" ? mul(w, 1000) : null;
+      if (!kgc) throw new Error("copper unit must be kg or t");
+      return { value: str(divTo(mul(base, kgc), 1000, 2), 2), unit: "THB", priceType: "theoretical",
+        audit: audit("valuation.copper.v1", i, []) };
+    }
+    throw new Error("metal must be gold, silver or copper");
+  }
+
+  // COMEX HG (USD per lb) to USD per metric ton.
+  function comexToTon(hg) {
+    return str(mul(positive("hg", hg), CONSTANTS.LB_PER_TON), 2);
+  }
+
+  return {
+    VERSION: VERSION, CONSTANTS: CONSTANTS,
+    gold99: gold99, goldBaht96: goldBaht96, silver: silver, copper: copper,
+    orderTotal: orderTotal, theoreticalBaht96: theoreticalBaht96, valuation: valuation, comexToTon: comexToTon
+  };
+});
+
+</script>
+<script>
+var PM=PMGPricing;
 var GR=["ทองแดงปอก","ทองแดงช็อต","สายโทร","ทองแดงใหญ่","ทองแดงเล็ก","ทองแดงบดสะอาด","ทองแดงบดผสม","ทองแดงชุบขาว","ทองแดงชุบขาว (ชิ้นงาน)"];
 var C={};try{C=JSON.parse(document.getElementById("cfg").textContent)}catch(e){}
 var D={fx:33.7569,gold:3996.9,silver:54.05,lme:14336.95,gBid:3.5,gAsk:1.5,gAdd:1750,gDed:2500,oDed:5,gta:{bb:63900,bo:64100,oo:64900,tax:62625.96,at:"25/10/2569 09:00 (round 1)"},anc:{s:3996.9,fx:33.7569},tDays:3,rDays:5,oB:0,oA:0,sB:0,sAdd:100,live:true,liveFx:true,liveCu:false,luT:0,luBy:"",demo:false,at:"",hist:[],prem:[-13,-21,-41,-40,-50,-53,-70,-82,-90]};
@@ -107,19 +352,24 @@ var who="admin",prev={gold:C.gold,silver:C.silver,lme:C.lme},page="home",left=60
 var T={p:"g99",side:"bid",unit:"g",w:"",rev:null,done:null};
 function $(i){return document.getElementById(i)}
 function f(n,d){return n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d})}
-function r2(x){return Math.round(x*100)/100}
+function N(x){return parseFloat(x)}
+function toG(s,u){s=String(s==null?"":s).trim();var m=/^(\d*)\.?(\d*)$/.exec(s);if(!m||(m[1]===""&&m[2]===""))return null;var a=m[1]||"0",b=m[2]||"";if(u==="kg"){b+="000";a+=b.slice(0,3);b=b.slice(3)}a=a.replace(/^0+(?=\d)/,"");b=b.replace(/0+$/,"");return b?a+"."+b:a}
 function chg(a,b){var d=a-b,p=b?d/b*100:0;return '<span class="'+(d>=0?"up":"dn")+'">'+(d>=0?"▲ ":"▼ ")+f(Math.abs(d),2)+" ("+f(Math.abs(p),2)+"%)</span>"}
 function P(){
-  var g99o=r2(C.gold*KG_GOLD*C.fx+C.gAdd),g99={b:r2(g99o-C.gDed),o:g99o};
-  var ratio=(C.gold*C.fx)/(C.anc.s*C.anc.fx);
-  var bar={b:r2(C.gta.bb*ratio),o:r2(C.gta.bo*ratio)};
-  var orn={b:r2(bar.b*(1-C.oDed/100)),o:r2(C.gta.oo*ratio),t:r2(C.gta.tax*ratio)};
-  var sb=C.silver*KG_SILVER*C.fx,s99={b:r2(sb-C.sB),o:r2(sb+C.sAdd)};
-  var s925={b:r2(s99.b*0.925),o:r2(s99.o*0.925)};
-  var cu=Math.round(C.lme*C.fx/1000);
-  return{g99:g99,bar:bar,orn:orn,s99:s99,s925:s925,cu:cu};
+  try{
+    var g=PM.gold99({gold:C.gold,fx:C.fx,add:C.gAdd,deduct:C.gDed}),
+    b=PM.goldBaht96({gold:C.gold,fx:C.fx,anchorGold:C.anc.s,anchorFx:C.anc.fx,gtaBarBid:C.gta.bb,gtaBarOffer:C.gta.bo,gtaOrnOffer:C.gta.oo,gtaTax:C.gta.tax,ornDeductPct:C.oDed}),
+    sv=PM.silver({silver:C.silver,fx:C.fx,bidDeduct:C.sB,offerAdd:C.sAdd}),
+    c=PM.copper({lme:C.lme,fx:C.fx,adjustments:GR.map(function(n,i){return C.prem[i]||0})});
+    var x={g99:{b:g.bid,o:g.offer},bar:{b:b.bar.bid,o:b.bar.offer},orn:{b:b.ornament.bid,o:b.ornament.offer,t:b.ornament.taxBase},s99:{b:sv.s99.bid,o:sv.s99.offer},s925:{b:sv.s925.bid,o:sv.s925.offer},cu:c.flat,cg:c.grades};
+    var n=function(q){return{b:N(q.b),o:N(q.o),t:q.t==null?undefined:N(q.t)}};
+    return{x:x,g99:n(x.g99),bar:n(x.bar),orn:n(x.orn),s99:n(x.s99),s925:n(x.s925),cu:N(x.cu),cg:x.cg.map(N)};
+  }catch(e){
+    var z={b:0,o:0};
+    return{err:String(e.message||e),x:{},g99:z,bar:z,orn:z,s99:z,s925:z,cu:0,cg:GR.map(function(){return 0})};
+  }
 }
-function cPx(i){return Math.round(P().cu+(C.prem[i]||0))}
+function cPx(i){return P().cg[i]}
 function bb(t,u,x){return '<div class="card"><div class="t">'+t+'</div><div class="sub">'+u+'</div><div class="bb"><div class="b"><small>Bid</small><strong>'+f(x.b,2)+'</strong></div><div class="a"><small>Offer</small><strong>'+f(x.o,2)+'</strong></div></div>'+(x.t?'<div class="pg" style="margin-top:8px">ฐานภาษี (tax base) ฿'+f(x.t,2)+'</div>':'')+'</div>'}
 function spot(c,n,v,u,ch){return '<div class="spot '+c+'"><div class="n">'+n+'</div><div class="v">'+v+'</div><div class="u">'+u+'</div><div class="chg">'+(ch||"&nbsp;")+'</div></div>'}
 function home(){
@@ -154,12 +404,14 @@ function tradeInit(){
   $("p_trade").addEventListener("input",function(e){if(e.target.id==="tw"||e.target.id==="tu"||e.target.id==="tp"){T.w=$("tw").value;T.unit=$("tu").value;T.p=$("tp").value;tradeCalc()}});
 }
 function cur(){
-  var p=P(),isC=T.p.charAt(0)==="c",rate,unit,perG,dec=2;
-  if(isC){rate=cPx(+T.p.slice(1));unit="THB/kg";perG=rate/1000;dec=0}
-  else{var x=p[T.p],v=T.side==="bid"?x.b:x.o;rate=v;unit=T.p==="bar"||T.p==="orn"?"THB/gold baht":"THB/kg";perG=unit==="THB/kg"?v/1000:v/BAHT_G}
-  var w=parseFloat(T.w),g=isFinite(w)&&w>0?(T.unit==="kg"?w*1000:w):0,tot=perG*g;tot=dec?r2(tot):Math.round(tot);
-  var sel=$("tp");
-  return{n:sel.options[sel.selectedIndex].text,isC:isC,side:(isC||T.side==="bid")?"Customer sells · Bid":"Customer buys · Offer",amt:isFinite(w)&&w>0?w:0,au:T.unit,pk:T.p,rate:rate,unit:unit,dec:dec,g:g,tot:tot};
+  var p=P(),isC=T.p.charAt(0)==="c",rx,unit,pu,dec=2;
+  if(isC){rx=p.x.cg&&p.x.cg[+T.p.slice(1)];unit="THB/kg";pu="kg";dec=0}
+  else{var q=p.x[T.p],v=q&&(T.side==="bid"?q.b:q.o);rx=v;unit=T.p==="bar"||T.p==="orn"?"THB/gold baht":"THB/kg";pu=unit==="THB/kg"?"kg":"baht"}
+  var gs=p.err?null:toG(T.w,T.unit),g=gs!=null?N(gs):0,tot=0,txs="0",er=p.err||null;
+  if(!(g>0))gs=null,g=0;
+  if(g>0&&rx!=null){try{var o=PM.orderTotal({rate:rx,unit:pu,grams:gs,dp:dec});txs=o.total;tot=N(txs)}catch(e){er=String(e.message||e);g=0;gs=null}}
+  var sel=$("tp"),w=g>0?N(T.w):0;
+  return{n:sel.options[sel.selectedIndex].text,isC:isC,side:(isC||T.side==="bid")?"Customer sells · Bid":"Customer buys · Offer",amt:w,au:T.unit,pk:T.p,rate:rx==null?0:N(rx),unit:unit,dec:dec,g:g,tot:tot,gs:gs,rx:rx,tx:txs,pv:PM.VERSION,err:er};
 }
 function loadTx(){try{return JSON.parse(localStorage.getItem("bd_tx")||"[]")}catch(e){return[]}}
 function confirmOrder(){
@@ -177,7 +429,7 @@ function tradeCalc(){
   box.innerHTML='<small>'+c.side+' · live</small><strong>฿'+f(c.rate,c.dec)+'</strong> <span class="pg">'+c.unit+'</span>';
   $("tr2").textContent="฿"+f(c.tot,c.dec);
   $("tr3").textContent=c.g>0?f(c.g,c.g%1?2:0)+" g = "+f(c.g/1000,3)+" kg":"Enter a weight in g or kg.";
-  var okf=feedOk(T.p);$("tfeed").hidden=okf;if(!okf)$("tfeed").textContent=gateMsg(T.p);$("tgo").disabled=!(c.g>0)||!okf;$("tgo").style.opacity=(c.g>0&&okf)?1:.5;
+  var okf=feedOk(T.p)&&!c.err;$("tfeed").hidden=okf;if(!okf)$("tfeed").textContent=c.err&&feedOk(T.p)?"Prices cannot be calculated: "+c.err+". Check the Setting page.":gateMsg(T.p);$("tgo").disabled=!(c.g>0)||!okf;$("tgo").style.opacity=(c.g>0&&okf)?1:.5;
   var r=T.rev,d=T.done,rv=$("trev");
   rv.hidden=!(r||d);
   if(d){rv.innerHTML='<div class="t">Order confirmed</div><div class="pg">'+d.id+' · '+d.t+'</div><div class="res" style="margin-top:10px"><b>'+d.n+'</b><div class="pg">'+(d.side?d.side+' · ':'')+f(d.g,d.g%1?2:0)+' g at ฿'+f(d.rate,d.dec)+' '+d.unit+'</div><div class="big">฿'+f(d.tot,d.dec)+'</div></div><p class="pg">Saved to Orders in History on this device.</p><button class="pri" id="tnew" style="width:100%">New order</button>'}
@@ -204,7 +456,7 @@ function stL(x){return{Booked:"Booked",Refine:"Sent for Refine",Settled:"Settled
 function saveTx(tx){try{localStorage.setItem("bd_tx",JSON.stringify(tx))}catch(e){}}
 function norm(r){if(!r.st)r.st="Booked";if(!r.ts){var v=parseInt((r.id||"").slice(3),36);r.ts=isFinite(v)?v:Date.now()}if(!r.due)r.due=r.ts+(r.st==="Refine"?C.rDays:C.tDays)*864e5;return r}
 function pkOf(r){if(r.pk)return r.pk;for(var i=0;i<PL.length;i++)if(PL[i][1]===r.n)return PL[i][0];for(var j=0;j<GR.length;j++)if(r.n==="Copper · "+GR[j])return"c"+j;return"g99"}
-function mkt(r){var k=pkOf(r),g;if(k.charAt(0)==="c")g=cPx(+k.slice(1))/1000;else{var x=P()[k],v=(r.side&&r.side.indexOf("buys")>-1)?x.o:x.b;g=(k==="bar"||k==="orn")?v/BAHT_G:v/1000}return g*r.g}
+function mkt(r){try{var k=pkOf(r),isC=k.charAt(0)==="c",p=P(),rx,u;if(isC){rx=p.x.cg[+k.slice(1)];u="kg"}else{var x=p.x[k];rx=(r.side&&r.side.indexOf("buys")>-1)?x.o:x.b;u=(k==="bar"||k==="orn")?"baht":"kg"}return N(PM.orderTotal({rate:rx,unit:u,grams:r.gs||String(r.g),dp:isC?0:2}).total)}catch(e){return r.tot}}
 function dstr(t){return new Date(t).toISOString().slice(0,10)}
 function port(){
   var tx=loadTx().map(norm),act=tx.filter(function(r){return r.st==="Booked"||r.st==="Refine"}),now=Date.now();
@@ -318,7 +570,7 @@ async function pull(){
       if(b){C.silver=R[1].value.v;got++}else bad++;
       LIVE.mOk=a&&b;if(a&&b)LIVE.mT=now;
     }
-    if(C.liveCu){LIVE.cOk=ok(2);if(ok(2)){C.lme=R[2].value.v*LB_TON;qt=qt||R[2].value.t;got++;LIVE.cT=now}else bad++}
+    if(C.liveCu){LIVE.cOk=ok(2);if(ok(2)){C.lme=N(PM.comexToTon(R[2].value.v));qt=qt||R[2].value.t;got++;LIVE.cT=now}else bad++}
     if(fxDue){LIVE.xOk=ok(3);if(ok(3)){C.fx=R[3].value;LIVE.fxT=now;got++}else bad++}
     var d=new Date(qt||Date.now());if(isNaN(d))d=new Date();
     LIVE.q=d.toLocaleTimeString("en-GB");LIVE.ok=bad===0;LIVE.t=Date.now();if(got)LIVE.n++;
