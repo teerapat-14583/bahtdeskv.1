@@ -101,9 +101,9 @@ input:focus,select:focus{border-color:var(--acc)}
 var KG_GOLD=32.148,KG_SILVER=32.1507,BAHT_G=15.244,BAHT=BAHT_G/31.1035*0.965,LB_TON=2204.62262;
 var GR=["ทองแดงปอก","ทองแดงช็อต","สายโทร","ทองแดงใหญ่","ทองแดงเล็ก","ทองแดงบดสะอาด","ทองแดงบดผสม","ทองแดงชุบขาว","ทองแดงชุบขาว (ชิ้นงาน)"];
 var C={};try{C=JSON.parse(document.getElementById("cfg").textContent)}catch(e){}
-var D={fx:33.7569,gold:3996.9,silver:54.05,lme:14336.95,gBid:3.5,gAsk:1.5,gAdd:1750,gDed:2500,oDed:5,gta:{bb:63900,bo:64100,oo:64900,tax:62625.96,at:"25/10/2569 09:00 (round 1)"},anc:{s:3996.9,fx:33.7569},tDays:3,rDays:5,oB:0,oA:0,sB:0,sAdd:100,live:true,liveFx:true,liveCu:false,demo:false,at:"",hist:[],prem:[-13,-21,-41,-40,-50,-53,-70,-82,-90]};
+var D={fx:33.7569,gold:3996.9,silver:54.05,lme:14336.95,gBid:3.5,gAsk:1.5,gAdd:1750,gDed:2500,oDed:5,gta:{bb:63900,bo:64100,oo:64900,tax:62625.96,at:"25/10/2569 09:00 (round 1)"},anc:{s:3996.9,fx:33.7569},tDays:3,rDays:5,oB:0,oA:0,sB:0,sAdd:100,live:true,liveFx:true,liveCu:false,luT:0,luBy:"",demo:false,at:"",hist:[],prem:[-13,-21,-41,-40,-50,-53,-70,-82,-90]};
 for(var k in D)if(C[k]==null)C[k]=D[k];
-var prev={gold:C.gold,silver:C.silver,lme:C.lme},page="home",left=60,isOwner=false,HT="gold";
+var who="admin",prev={gold:C.gold,silver:C.silver,lme:C.lme},page="home",left=60,isOwner=false,HT="gold";
 var T={p:"g99",side:"bid",unit:"g",w:"",rev:null,done:null};
 function $(i){return document.getElementById(i)}
 function f(n,d){return n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d})}
@@ -125,7 +125,7 @@ function spot(c,n,v,u,ch){return '<div class="spot '+c+'"><div class="n">'+n+'</
 function home(){
   var p=P();
   var h='<div class="spots">'+spot("g","Gold (XAU/USD)",f(C.gold,2),"USD / troy oz",chg(C.gold,prev.gold))+spot("s","Silver (XAG/USD)",f(C.silver,2),"USD / troy oz",chg(C.silver,prev.silver))+spot("c","Copper ("+(C.liveCu?"COMEX":"LME")+")",f(C.lme,2),"USD / ton",chg(C.lme,prev.lme))+spot("f","Exchange rate",f(C.fx,4),"USD / THB","")+'</div>'+
-  '<div class="fx"><span>'+(C.liveCu?'Copper: COMEX HG futures (Gold-API)':'Copper: LME, typed by admin'+(C.at?' · set '+C.at:''))+'</span><span'+(demoOn()?'':' hidden')+'>Next update in <b id="cd">'+left+'</b>s</span></div>'+
+  '<div class="fx"><span>'+(C.liveCu?'Copper: COMEX HG futures (Gold-API)':'Copper: LME, typed by admin · '+luTxt()+(luOk()?'':' · expired, copper orders paused'))+'</span><span'+(demoOn()?'':' hidden')+'>Next update in <b id="cd">'+left+'</b>s</span></div>'+
   '<div class="tabs" style="margin-top:16px"><button data-h="gold">Gold</button><button data-h="silver">Silver</button><button data-h="copper">Copper</button></div>';
   if(HT==="gold")h+=bb("Gold 99.99%","THB / kg",p.g99)+bb("Gold 96.5% แท่ง","THB / gold baht",p.bar)+bb("Gold 96.5% รูปพรรณ","THB / gold baht",p.orn);
   else if(HT==="silver")h+=bb("Silver 99.99%","THB / kg",p.s99)+bb("Silver 92.5%","THB / kg",p.s925)+'<p class="foot">VAT not included yet.</p>';
@@ -141,7 +141,7 @@ function tradeInit(){
   '<div class="bb" style="grid-template-columns:1fr;margin-top:0"><div id="tlive"></div></div>'+
   '<div class="wrow"><input id="tw" type="number" min="0" step="any" inputmode="decimal" placeholder="Enter weight"><select id="tu"><option value="g">g</option><option value="kg">kg</option></select></div>'+
   '<div class="res"><div class="pg">Total</div><div class="big" id="tr2">฿0</div><div class="pg" id="tr3"></div></div>'+
-  '<div class="pg dn" id="tfeed" hidden style="margin-top:10px">Live prices are offline, so orders are paused. They resume when the feed reconnects.</div><p style="margin:12px 0 0"><button class="pri" id="tgo" style="width:100%">Review order</button></p></div>'+
+  '<div class="pg dn" id="tfeed" hidden style="margin-top:10px"></div><p style="margin:12px 0 0"><button class="pri" id="tgo" style="width:100%">Review order</button></p></div>'+
   '<div id="trev" hidden></div></div>';
   $("p_trade").addEventListener("click",function(e){
     var s=e.target.getAttribute("data-s"),id=e.target.id;
@@ -177,11 +177,11 @@ function tradeCalc(){
   box.innerHTML='<small>'+c.side+' · live</small><strong>฿'+f(c.rate,c.dec)+'</strong> <span class="pg">'+c.unit+'</span>';
   $("tr2").textContent="฿"+f(c.tot,c.dec);
   $("tr3").textContent=c.g>0?f(c.g,c.g%1?2:0)+" g = "+f(c.g/1000,3)+" kg":"Enter a weight in g or kg.";
-  var okf=feedOk(T.p);$("tfeed").hidden=okf;$("tgo").disabled=!(c.g>0)||!okf;$("tgo").style.opacity=(c.g>0&&okf)?1:.5;
+  var okf=feedOk(T.p);$("tfeed").hidden=okf;if(!okf)$("tfeed").textContent=gateMsg(T.p);$("tgo").disabled=!(c.g>0)||!okf;$("tgo").style.opacity=(c.g>0&&okf)?1:.5;
   var r=T.rev,d=T.done,rv=$("trev");
   rv.hidden=!(r||d);
   if(d){rv.innerHTML='<div class="t">Order confirmed</div><div class="pg">'+d.id+' · '+d.t+'</div><div class="res" style="margin-top:10px"><b>'+d.n+'</b><div class="pg">'+(d.side?d.side+' · ':'')+f(d.g,d.g%1?2:0)+' g at ฿'+f(d.rate,d.dec)+' '+d.unit+'</div><div class="big">฿'+f(d.tot,d.dec)+'</div></div><p class="pg">Saved to Orders in History on this device.</p><button class="pri" id="tnew" style="width:100%">New order</button>'}
-  else if(r){rv.innerHTML='<div class="t">Confirm your order</div><div class="pg">The price below is held while you review.</div><div class="res" style="margin-top:10px"><b>'+r.n+'</b><div class="pg">'+(r.side?r.side+'<br>':'')+'Rate ฿'+f(r.rate,r.dec)+' '+r.unit+'<br>Weight '+f(r.g,r.g%1?2:0)+' g ('+f(r.g/1000,3)+' kg)</div><div class="pg" style="margin-top:8px">Total</div><div class="big">฿'+f(r.tot,r.dec)+'</div></div>'+(feedOk(r.pk)?'':'<p class="pg dn">Live prices are offline, so this order cannot be confirmed right now.</p>')+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px"><button class="pri" id="tbk" style="background:transparent;color:var(--ink);border:1px solid var(--line)">Back</button><button class="pri" id="tok"'+(feedOk(r.pk)?'':' disabled style="opacity:.5"')+'>Confirm</button></div>'}
+  else if(r){rv.innerHTML='<div class="t">Confirm your order</div><div class="pg">The price below is held while you review.</div><div class="res" style="margin-top:10px"><b>'+r.n+'</b><div class="pg">'+(r.side?r.side+'<br>':'')+'Rate ฿'+f(r.rate,r.dec)+' '+r.unit+'<br>Weight '+f(r.g,r.g%1?2:0)+' g ('+f(r.g/1000,3)+' kg)</div><div class="pg" style="margin-top:8px">Total</div><div class="big">฿'+f(r.tot,r.dec)+'</div></div>'+(feedOk(r.pk)?'':'<p class="pg dn">This order cannot be confirmed right now. '+gateMsg(r.pk)+'</p>')+'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px"><button class="pri" id="tbk" style="background:transparent;color:var(--ink);border:1px solid var(--line)">Back</button><button class="pri" id="tok"'+(feedOk(r.pk)?'':' disabled style="opacity:.5"')+'>Confirm</button></div>'}
   if(r||d)rv.innerHTML='<div class="ov"><div class="md">'+rv.innerHTML+'</div></div>';
 }
 function hist(){
@@ -247,7 +247,7 @@ $("p_port").addEventListener("click",function(e){
 function fld(l,id,v,sm){return '<div class="fld"><div>'+l+(sm?'<small>'+sm+'</small>':'')+'</div><input id="'+id+'" type="number" step="any" inputmode="decimal" value="'+v+'"></div>'}
 function setp(){
   if(!isOwner){$("p_set").innerHTML='<h2>Setting</h2><div class="card pg">Settings are managed by the Baht Desk admin.</div>';return}
-  var h='<h2>Admin settings</h2><div class="card">'+srcSel()+'<p class="pg">Live prices refresh every minute and replace the typed values below. Changes apply when you press Save and publish.</p></div><h2>Spot prices</h2><div class="card">'+fld("USD/THB rate","a_fx",C.fx)+fld("Gold spot (USD/oz)","a_g",C.gold)+fld("Silver spot (USD/oz)","a_s",C.silver)+fld("Copper LME CSP (USD/ton)","a_l",C.lme,'Official cash settlement price from <a href="https://www.lme.com/Metals/Non-ferrous/LME-Copper#Trading+summary" target="_blank" rel="noopener">lme.com</a>')+'</div>'+
+  var h='<h2>Admin settings</h2><div class="card">'+srcSel()+'<p class="pg">Live prices refresh every minute and replace the typed values below. Changes apply when you press Save and publish.</p></div><h2>Spot prices</h2><div class="card">'+fld("USD/THB rate","a_fx",C.fx)+fld("Gold spot (USD/oz)","a_g",C.gold)+fld("Silver spot (USD/oz)","a_s",C.silver)+fld("Copper LME CSP (USD/ton)","a_l",C.lme,'Official cash settlement price from <a href="https://www.lme.com/Metals/Non-ferrous/LME-Copper#Trading+summary" target="_blank" rel="noopener">lme.com</a>. Last entered: '+luTxt()+(luOk()?'':' (expired)'))+'<label class="pg" id="a_lcw" style="display:block;margin-top:8px"><input type="checkbox" id="a_lc"> This LME price is today\'s price (tick when the price is unchanged since the last entry)</label></div>'+
   '<h2>Gold 96.5% from Gold Traders Association</h2><div class="card">'+fld("Bar bid (รับซื้อ)","a_bb",C.gta.bb,"THB per gold baht")+fld("Bar offer (ขายออก)","a_bo",C.gta.bo,"THB per gold baht")+fld("Ornament offer (ขายออก)","a_oo",C.gta.oo,"THB per gold baht")+fld("Ornament tax base (ฐานภาษี)","a_tx",C.gta.tax,"THB per gold baht")+'<div class="fld"><div>Announcement<small>Date, time and round</small></div><input id="a_at" type="text" value="'+C.gta.at+'"></div><p class="pg">When you change these numbers, they are matched to the spot and USD/THB entered above. After that, prices move with spot × USD/THB.</p></div>'+
   '<h2>Gold 99.99% and silver adjustments</h2><div class="card">'+fld("Gold 99.99% add-on","a_ga",C.gAdd,"THB per kg, added to the offer")+fld("Gold 99.99% bid deduction","a_gd",C.gDed,"THB per kg, taken off the offer")+fld("Ornament bid deduction","a_od",C.oDed,"% off the bar bid")+fld("Silver bid deduction","a_sb",C.sB,"THB per kg")+fld("Silver offer add-on","a_sa",C.sAdd,"THB per kg")+'</div>'+
   '<h2>Settlement terms</h2><div class="card">'+fld("Trade settlement","a_td",C.tDays,"days after booking")+fld("Refine settlement","a_rd",C.rDays,"days after sending for refining")+'</div>'+
@@ -269,7 +269,7 @@ async function save(){
   C.live=$("a_live").value==="1";C.liveFx=$("a_livefx").value==="1";C.liveCu=$("a_livecu").value==="1";
   if(!C.live){C.gold=num("a_g",C.gold);C.silver=num("a_s",C.silver)}
   if(!C.liveFx)C.fx=num("a_fx",C.fx);
-  if(!C.liveCu)C.lme=num("a_l",C.lme);
+  if(!C.liveCu){var nl=num("a_l",C.lme);if(nl!==C.lme||$("a_lc").checked){C.lme=nl;C.luT=Date.now();C.luBy=who}}
   var g=C.gta,n={bb:num("a_bb",g.bb),bo:num("a_bo",g.bo),oo:num("a_oo",g.oo),tax:num("a_tx",g.tax),at:$("a_at").value||g.at};
   var ch=n.bb!==g.bb||n.bo!==g.bo||n.oo!==g.oo||n.tax!==g.tax;
   C.gta=n;if(ch)C.anc={s:C.gold,fx:C.fx};
@@ -291,10 +291,19 @@ var API={px:"https://api.gold-api.com/price/",fx:"https://api.frankfurter.dev/v2
 function jget(u){var a=new AbortController(),t=setTimeout(function(){a.abort()},TMO);return fetch(u,{cache:"no-store",signal:a.signal}).then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.json()}).finally(function(){clearTimeout(t)})}
 // Orders are only allowed while every live price they depend on is fresh (last poll succeeded, under 2 minutes old; USD/THB under 30 minutes).
 function fresh(t,ms){return Date.now()-t<(ms||120000)}
+// Typed LME copper: an admin enters it each morning. It counts as current for 24 hours from the entry time.
+var LU_MS=864e5;
+function luOk(){return !!C.luT&&Date.now()-C.luT<LU_MS}
+function esc(t){return String(t==null?"":t).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function luTxt(){return C.luT?new Date(C.luT).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})+(C.luBy?" by "+esc(C.luBy):""):"not entered yet"}
 function feedOk(pk){
   var cu=!!pk&&pk.charAt(0)==="c",x=!C.liveFx||(LIVE.xOk&&fresh(LIVE.fxT,18e5)),m=!C.live||(LIVE.mOk&&fresh(LIVE.mT)),c=!C.liveCu||(LIVE.cOk&&fresh(LIVE.cT));
-  return pk?x&&(cu?c:m):x&&m&&c;
+  return pk?x&&(cu?(C.liveCu?c:luOk()):m):x&&m&&c;
 }
+function gateMsg(pk){
+  var cu=!!pk&&pk.charAt(0)==="c";
+  if(cu&&!C.liveCu&&!luOk()&&(!C.liveFx||(LIVE.xOk&&fresh(LIVE.fxT,18e5))))return"The LME copper price has not been entered in the last 24 hours, so copper orders are paused until the admin enters today's price.";
+  return"Live prices are offline, so orders are paused. They resume when the feed reconnects."}
 function quote(m){return jget(API.px+m).then(function(d){var v=d&&d.price;if(typeof v!=="number"||!(v>0))throw new Error(m+" bad price");return{v:v,t:d.updatedAt}})}
 function rate(){return jget(API.fx).then(function(d){var v=Array.isArray(d)?d[0]&&d[0].rate:d&&d.rates&&d.rates.THB;if(typeof v!=="number"||!(v>0))throw new Error("bad rate");return v})}
 async function pull(){
@@ -343,7 +352,7 @@ tradeInit();setp();render();pull();
 setInterval(function(){if(!document.hidden)pull()},60000);
 var gateKey="";setInterval(function(){var k=[feedOk(),feedOk("g99"),feedOk("c0")].join();if(k!==gateKey){gateKey=k;paint();tradeCalc()}},3000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&Date.now()-LIVE.t>15000)pull()});
-(async function(){try{var u=await claude.use("user");if(u&&u.isOwner()){isOwner=true;setp()}}catch(e){}})();
+(async function(){try{var u=await claude.use("user");if(u&&u.isOwner()){isOwner=true;who=String(u.name||u.displayName||u.email||"admin").slice(0,60);setp()}}catch(e){}})();
 </script>
 </body>
 </html>
