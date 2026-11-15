@@ -348,7 +348,7 @@ input:focus,select:focus{border-color:var(--acc)}
 var PM=PMGPricing;
 var GR=["ทองแดงปอก","ทองแดงช็อต","สายโทร","ทองแดงใหญ่","ทองแดงเล็ก","ทองแดงบดสะอาด","ทองแดงบดผสม","ทองแดงชุบขาว","ทองแดงชุบขาว (ชิ้นงาน)"];
 var C={};try{C=JSON.parse(document.getElementById("cfg").textContent)}catch(e){}
-var D={fx:33.7569,gold:3996.9,silver:54.05,lme:14336.95,gBid:3.5,gAsk:1.5,gAdd:1750,gDed:2500,oDed:5,gta:{bb:63900,bo:64100,oo:64900,tax:62625.96,at:"25/10/2569 09:00 (round 1)"},anc:{s:3996.9,fx:33.7569},tDays:3,rDays:5,oB:0,oA:0,sB:0,sAdd:100,live:true,liveFx:true,liveCu:false,luT:0,luBy:"",demo:false,at:"",hist:[],prem:[-13,-21,-41,-40,-50,-53,-70,-82,-90]};
+var D={cuDisc:18,fx:33.7569,gold:3996.9,silver:54.05,lme:14336.95,gBid:3.5,gAsk:1.5,gAdd:1750,gDed:2500,oDed:5,gta:{bb:63900,bo:64100,oo:64900,tax:62625.96,at:"25/10/2569 09:00 (round 1)"},anc:{s:3996.9,fx:33.7569},tDays:3,rDays:5,oB:0,oA:0,sB:0,sAdd:100,live:true,liveFx:true,liveCu:false,luT:0,luBy:"",demo:false,at:"",hist:[],prem:[-13,-21,-41,-40,-50,-53,-70,-82,-90]};
 for(var k in D)if(C[k]==null)C[k]=D[k];
 var who="admin",prev={gold:C.gold,silver:C.silver,lme:C.lme},page="home",left=60,isOwner=false,HT="gold";
 var T={p:"g99",side:"bid",unit:"g",w:"",rev:null,done:null};
@@ -384,8 +384,12 @@ function P(){
     var g=PM.gold99({gold:C.gold,fx:C.fx,add:C.gAdd,deduct:C.gDed}),
     b=PM.goldBaht96({gold:C.gold,fx:C.fx,anchorGold:C.anc.s,anchorFx:C.anc.fx,gtaBarBid:C.gta.bb,gtaBarOffer:C.gta.bo,gtaOrnOffer:C.gta.oo,gtaTax:C.gta.tax,ornDeductPct:C.oDed}),
     sv=PM.silver({silver:C.silver,fx:C.fx,bidDeduct:C.sB,offerAdd:C.sAdd}),
-    c=PM.copper({lme:C.lme,fx:C.fx,adjustments:GR.map(function(n,i){return C.prem[i]||0})});
-    var x={g99:{b:g.bid,o:g.offer},bar:{b:b.bar.bid,o:b.bar.offer},orn:{b:b.ornament.bid,o:b.ornament.offer,t:b.ornament.taxBase},s99:{b:sv.s99.bid,o:sv.s99.offer},s925:{b:sv.s925.bid,o:sv.s925.offer},cu:c.flat,cg:c.grades};
+    // Copper discount (C.cuDisc, THB/kg) comes off the flat price and therefore off every grade:
+    // flat shown = round(lme*fx/1000) - discount; grade = round(lme*fx/1000) - discount + adjustment.
+    cd=+C.cuDisc||0,
+    c=PM.copper({lme:C.lme,fx:C.fx,adjustments:GR.map(function(n,i){return (C.prem[i]||0)-cd})}),
+    cf=PM.copper({lme:C.lme,fx:C.fx,adjustments:[-cd]});
+    var x={g99:{b:g.bid,o:g.offer},bar:{b:b.bar.bid,o:b.bar.offer},orn:{b:b.ornament.bid,o:b.ornament.offer,t:b.ornament.taxBase},s99:{b:sv.s99.bid,o:sv.s99.offer},s925:{b:sv.s925.bid,o:sv.s925.offer},cu:cf.grades[0],cuLme:c.flat,cg:c.grades};
     var n=function(q){return{b:N(q.b),o:N(q.o),t:q.t==null?undefined:N(q.t)}};
     return{x:x,g99:n(x.g99),bar:n(x.bar),orn:n(x.orn),s99:n(x.s99),s925:n(x.s925),cu:N(x.cu),cg:x.cg.map(N)};
   }catch(e){
@@ -403,7 +407,7 @@ function home(){
   '<div class="tabs" style="margin-top:16px"><button data-h="gold">Gold</button><button data-h="silver">Silver</button><button data-h="copper">Copper</button></div>';
   if(HT==="gold")h+=bb("Gold 99.99%","THB / kg",p.g99)+bb("Gold 96.5% แท่ง","THB / gold baht",p.bar)+bb("Gold 96.5% รูปพรรณ","THB / gold baht",p.orn);
   else if(HT==="silver")h+=bb("Silver 99.99%","THB / kg",p.s99)+bb("Silver 92.5%","THB / kg",p.s925)+'<p class="foot">VAT not included yet.</p>';
-  else{h+='<div class="card"><div class="t">'+(C.liveCu?'COMEX':'LME')+' Copper Price (Flat)</div><div class="big">'+f(p.cu,0)+' <span class="pg">THB/kg</span></div></div><div class="list">';
+  else{h+='<div class="card"><div class="t">'+(C.liveCu?'COMEX':'LME')+' Copper Price (Flat)</div><div class="big">'+f(p.cu,0)+' <span class="pg">THB/kg</span></div>'+(+C.cuDisc?'<div class="pg">LME flat '+f(N(p.x.cuLme||0),0)+' less '+f(+C.cuDisc,+C.cuDisc%1?2:0)+' THB/kg discount. Grade prices below include the discount.</div>':'')+'</div><div class="list">';
     GR.forEach(function(n,i){h+='<div class="row"><span>'+n+'</span><b>'+f(cPx(i),0)+' <span class="pg">THB/kg</span></b></div>'});h+='</div>'}
   $("p_home").innerHTML=h;
   [].forEach.call($("p_home").querySelectorAll("[data-h]"),function(b){b.setAttribute("aria-selected",b.getAttribute("data-h")===HT)});
@@ -530,7 +534,7 @@ function setp(){
   '<h2>Gold 96.5% from Gold Traders Association</h2><div class="card">'+fld("Bar bid (รับซื้อ)","a_bb",C.gta.bb,"THB per gold baht")+fld("Bar offer (ขายออก)","a_bo",C.gta.bo,"THB per gold baht")+fld("Ornament offer (ขายออก)","a_oo",C.gta.oo,"THB per gold baht")+fld("Ornament tax base (ฐานภาษี)","a_tx",C.gta.tax,"THB per gold baht")+'<div class="fld"><div>Announcement<small>Date, time and round</small></div><input id="a_at" type="text" value="'+C.gta.at+'"></div><p class="pg">When you change these numbers, they are matched to the spot and USD/THB entered above. After that, prices move with spot × USD/THB.</p></div>'+
   '<h2>Gold 99.99% and silver adjustments</h2><div class="card">'+fld("Gold 99.99% add-on","a_ga",C.gAdd,"THB per kg, added to the offer")+fld("Gold 99.99% bid deduction","a_gd",C.gDed,"THB per kg, taken off the offer")+fld("Ornament bid deduction","a_od",C.oDed,"% off the bar bid")+fld("Silver bid deduction","a_sb",C.sB,"THB per kg")+fld("Silver offer add-on","a_sa",C.sAdd,"THB per kg")+'</div>'+
   '<h2>Settlement terms</h2><div class="card">'+fld("Trade settlement","a_td",C.tDays,"days after booking")+fld("Refine settlement","a_rd",C.rDays,"days after sending for refining")+'</div>'+
-  '<h2>Copper adjustment vs copper price (THB/kg)</h2><div class="card">';
+  '<h2>Copper adjustment vs copper price (THB/kg)</h2><div class="card">'+fld("Copper discount","a_cd",C.cuDisc,"THB per kg, taken off the LME flat price and every grade");
   GR.forEach(function(n,i){h+=fld(n,"a_p"+i,C.prem[i])});
   h+='<div class="fld"><div>Demo price movement<small>Simulates a 1-minute feed</small></div><select id="a_d"><option value="0">Off</option><option value="1"'+(C.demo?" selected":"")+'>On</option></select></div></div><button class="pri" id="save">Save and publish</button> <span id="msg" class="pg"></span>';
   $("p_set").innerHTML=h;$("save").onclick=save;wireSrc();
@@ -553,7 +557,7 @@ async function save(){
   var ch=n.bb!==g.bb||n.bo!==g.bo||n.oo!==g.oo||n.tax!==g.tax;
   C.gta=n;if(ch)C.anc={s:C.gold,fx:C.fx};
   C.gAdd=num("a_ga",C.gAdd);C.gDed=num("a_gd",C.gDed);C.oDed=num("a_od",C.oDed);C.sB=num("a_sb",C.sB);C.sAdd=num("a_sa",C.sAdd);
-  C.tDays=num("a_td",C.tDays);C.rDays=num("a_rd",C.rDays);C.prem=GR.map(function(n,i){return num("a_p"+i,C.prem[i])});C.demo=$("a_d").value==="1";C.at=stamp();
+  C.cuDisc=num("a_cd",C.cuDisc);C.tDays=num("a_td",C.tDays);C.rDays=num("a_rd",C.rDays);C.prem=GR.map(function(n,i){return num("a_p"+i,C.prem[i])});C.demo=$("a_d").value==="1";C.at=stamp();
   var p=P();C.hist.unshift({t:C.at,g:C.gold,s:C.silver,fx:C.fx,l:C.lme,gb:p.g99.b,go:p.g99.o,sb:p.s99.b,so:p.s99.o});C.hist=C.hist.slice(0,60);
   $("msg").textContent="Publishing…";pull();
   try{var a=await claude.use("artifact");if(!a){$("msg").textContent="Publishing is not available here.";return}
