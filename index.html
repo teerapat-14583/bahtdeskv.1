@@ -78,11 +78,13 @@ th{background:var(--tint);color:var(--acc)}
 .pri{background:var(--acc);color:var(--onacc)}
 button:focus-visible,input:focus-visible,select:focus-visible{outline-color:var(--acc)}
 input:focus,select:focus{border-color:var(--acc)}
+.pinf{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:12px}.pinf input{letter-spacing:.3em}.lockt{font-weight:600;font-size:16px}
+#lockbtn{margin:0 0 0 4px;color:var(--ink)}
 </style>
 </head>
 <body>
 <div class="app">
-<header><h1>Baht Desk</h1><div class="live"><span class="dot" id="dot"></span><span id="stamp"></span></div></header>
+<header><h1>Baht Desk</h1><div class="live"><span class="dot" id="dot"></span><span id="stamp"></span><button class="ab" id="lockbtn" hidden>Log out</button></div></header>
 <section id="p_home" data-d></section>
 <section id="p_trade" data-d hidden></section>
 <section id="p_port" data-d hidden></section>
@@ -350,6 +352,28 @@ var D={fx:33.7569,gold:3996.9,silver:54.05,lme:14336.95,gBid:3.5,gAsk:1.5,gAdd:1
 for(var k in D)if(C[k]==null)C[k]=D[k];
 var who="admin",prev={gold:C.gold,silver:C.silver,lme:C.lme},page="home",left=60,isOwner=false,HT="gold";
 var T={p:"g99",side:"bid",unit:"g",w:"",rev:null,done:null};
+// ---- PIN lock: prices stay public; placing orders, Portfolio and History need the shop PIN.
+// Only a salted SHA-256 of the PIN is stored here. This keeps casual visitors out; it is not strong security,
+// because anyone with the page source can try PINs offline. To change the PIN, replace PIN_HASH with
+// sha256(PIN_SALT + newPin) as hex. A login lasts 12 hours on that device, or until "Log out".
+var PIN_SALT="bd-0bc9e2dc0fa8:",PIN_HASH="4e9ac5ffa3767e6e291e7eb7619249b1c00560eca59eb355af93f3ea3d13084e",AUTH_MS=432e5,unlocked=false,pinFails=0,pinWait=0;
+try{unlocked=+localStorage.getItem("bd_auth")>Date.now()}catch(e){}
+function pinForm(){return '<form class="pinf"><input type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="PIN" aria-label="PIN"><button class="pri" type="submit">Log in</button></form><div class="pg dn pinmsg" style="margin-top:6px"></div>'}
+function lockCard(t){return '<h2>'+t+'</h2><div class="card"><div class="lockt">Locked</div><div class="pg">Please log in with the shop PIN to open this page.</div>'+pinForm()+'</div>'}
+async function sha256hex(s){var b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(s));return Array.from(new Uint8Array(b)).map(function(x){return x.toString(16).padStart(2,"0")}).join("")}
+async function tryPin(form){
+  var inp=form.querySelector("input"),msg=form.parentNode.querySelector(".pinmsg"),p=(inp.value||"").trim();
+  if(Date.now()<pinWait){msg.textContent="Too many tries. Wait "+Math.ceil((pinWait-Date.now())/1000)+" seconds.";return}
+  if(!p)return;
+  var ok=false;try{ok=(await sha256hex(PIN_SALT+p))===PIN_HASH}catch(e){msg.textContent="Log in needs a secure (https) page.";return}
+  inp.value="";
+  if(!ok){pinFails++;if(pinFails>=5){pinFails=0;pinWait=Date.now()+30000}msg.textContent="Wrong PIN.";return}
+  unlocked=true;pinFails=0;try{localStorage.setItem("bd_auth",String(Date.now()+AUTH_MS))}catch(e){}
+  render();
+}
+function logout(){unlocked=false;T.rev=null;try{localStorage.removeItem("bd_auth")}catch(e){}render()}
+document.addEventListener("submit",function(e){if(e.target.classList&&e.target.classList.contains("pinf")){e.preventDefault();tryPin(e.target)}});
+setInterval(function(){if(unlocked){var x=0;try{x=+localStorage.getItem("bd_auth")}catch(e){x=Date.now()+1}if(x&&x<Date.now())logout()}},60000);
 function $(i){return document.getElementById(i)}
 function f(n,d){return n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d})}
 function N(x){return parseFloat(x)}
@@ -391,7 +415,7 @@ function tradeInit(){
   '<div class="bb" style="grid-template-columns:1fr;margin-top:0"><div id="tlive"></div></div>'+
   '<div class="wrow"><input id="tw" type="number" min="0" step="any" inputmode="decimal" placeholder="Enter weight"><select id="tu"><option value="g">g</option><option value="kg">kg</option></select></div>'+
   '<div class="res"><div class="pg">Total</div><div class="big" id="tr2">฿0</div><div class="pg" id="tr3"></div></div>'+
-  '<div class="pg dn" id="tfeed" hidden style="margin-top:10px"></div><p style="margin:12px 0 0"><button class="pri" id="tgo" style="width:100%">Review order</button></p></div>'+
+  '<div class="pg dn" id="tfeed" hidden style="margin-top:10px"></div><p style="margin:12px 0 0"><button class="pri" id="tgo" style="width:100%">Review order</button></p><div id="tlock" hidden style="margin-top:12px"><div class="pg">Log in with the shop PIN to place orders.</div>'+pinForm()+'</div></div>'+
   '<div id="trev" hidden></div></div>';
   $("p_trade").addEventListener("click",function(e){
     var s=e.target.getAttribute("data-s"),id=e.target.id;
@@ -415,7 +439,7 @@ function cur(){
 }
 function loadTx(){try{return JSON.parse(localStorage.getItem("bd_tx")||"[]")}catch(e){return[]}}
 function confirmOrder(){
-  var c=T.rev;if(!c||!feedOk(c.pk))return;
+  var c=T.rev;if(!c||!feedOk(c.pk)||!unlocked)return;
   c.id="BD-"+Date.now().toString(36).toUpperCase();c.t=stamp();c.ts=Date.now();c.st="Booked";c.due=c.ts+C.tDays*864e5;
   var tx=loadTx();tx.unshift(c);tx=tx.slice(0,100);
   try{localStorage.setItem("bd_tx",JSON.stringify(tx))}catch(e){}
@@ -429,6 +453,7 @@ function tradeCalc(){
   box.innerHTML='<small>'+c.side+' · live</small><strong>฿'+f(c.rate,c.dec)+'</strong> <span class="pg">'+c.unit+'</span>';
   $("tr2").textContent="฿"+f(c.tot,c.dec);
   $("tr3").textContent=c.g>0?f(c.g,c.g%1?2:0)+" g = "+f(c.g/1000,3)+" kg":"Enter a weight in g or kg.";
+  $("tlock").hidden=unlocked;$("tgo").hidden=!unlocked;
   var okf=feedOk(T.p)&&!c.err;$("tfeed").hidden=okf;if(!okf)$("tfeed").textContent=c.err&&feedOk(T.p)?"Prices cannot be calculated: "+c.err+". Check the Setting page.":gateMsg(T.p);$("tgo").disabled=!(c.g>0)||!okf;$("tgo").style.opacity=(c.g>0&&okf)?1:.5;
   var r=T.rev,d=T.done,rv=$("trev");
   rv.hidden=!(r||d);
@@ -437,6 +462,7 @@ function tradeCalc(){
   if(r||d)rv.innerHTML='<div class="ov"><div class="md">'+rv.innerHTML+'</div></div>';
 }
 function hist(){
+  if(!unlocked){$("p_hist").innerHTML=lockCard("History");return}
   var tx=loadTx(),o='<h2>Orders</h2>';
   if(!tx.length)o+='<div class="card pg">No orders on this device yet. Confirmed Buy-Sell orders appear here.</div>';
   else{o+='<div class="tw"><table><thead><tr><th>Order ref</th><th>Metal</th><th>Side</th><th class="r">Amount</th><th class="r">Confirmed price</th><th class="r">Value (THB)</th></tr></thead><tbody>';
@@ -459,6 +485,7 @@ function pkOf(r){if(r.pk)return r.pk;for(var i=0;i<PL.length;i++)if(PL[i][1]===r
 function mkt(r){try{var k=pkOf(r),isC=k.charAt(0)==="c",p=P(),rx,u;if(isC){rx=p.x.cg[+k.slice(1)];u="kg"}else{var x=p.x[k];rx=(r.side&&r.side.indexOf("buys")>-1)?x.o:x.b;u=(k==="bar"||k==="orn")?"baht":"kg"}return N(PM.orderTotal({rate:rx,unit:u,grams:r.gs||String(r.g),dp:isC?0:2}).total)}catch(e){return r.tot}}
 function dstr(t){return new Date(t).toISOString().slice(0,10)}
 function port(){
+  if(!unlocked){$("p_port").innerHTML=lockCard("Portfolio");return}
   var tx=loadTx().map(norm),act=tx.filter(function(r){return r.st==="Booked"||r.st==="Refine"}),now=Date.now();
   var M={Gold:{kg:0,v:0,mv:0},Silver:{kg:0,v:0,mv:0},Copper:{kg:0,v:0,mv:0}},RF={Gold:0,Silver:0},bv=0,bk=0,mvA=0,due=0,tr=0,rf=0,ov=0,rfv=0;
   act.forEach(function(r){var m=metalOf(r.n),kg=r.g/1000;due+=r.tot;if(r.st==="Refine")rfv+=r.tot;
@@ -607,7 +634,7 @@ function stampTxt(){
   if(anyLive())return LIVE.ok&&feedOk()?"Live · "+LIVE.q:(LIVE.t?"Feed offline · orders paused":"Connecting…");
   return C.demo?"Updated "+new Date().toLocaleTimeString("en-GB"):(C.at?"Updated "+C.at:"Live");
 }
-function paint(){$("stamp").textContent=stampTxt();$("dot").style.background=anyLive()&&LIVE.t&&!(LIVE.ok&&feedOk())?"#ffb4a8":""}
+function paint(){$("lockbtn").hidden=!unlocked;$("stamp").textContent=stampTxt();$("dot").style.background=anyLive()&&LIVE.t&&!(LIVE.ok&&feedOk())?"#ffb4a8":""}
 function render(){
   paint();
   home();hist();port();
@@ -621,6 +648,7 @@ setInterval(function(){
   if(!demoOn())return;left--;var cd=$("cd");if(cd)cd.textContent=left;
   if(left<=0){left=60;prev={gold:C.gold,silver:C.silver,lme:C.lme};C.gold*=1+(Math.random()-.5)*0.002;C.silver*=1+(Math.random()-.5)*0.004;C.lme*=1+(Math.random()-.5)*0.003;render()}
 },1000);
+$("lockbtn").addEventListener("click",logout);
 tradeInit();setp();render();pull();pullCu();
 setInterval(function(){if(!document.hidden)pull()},60000);
 setInterval(function(){if(!document.hidden)pullCu()},18e5);
