@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Baht Desk</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<title>Baht Desk · เฮียอ้วนรวย โลหะกิจ</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
 <style>
 :root{--bg:#f2f6fc;--surf:#fff;--ink:#0f2540;--mut:#5b6f8a;--line:#d9e3f1;--gold:#a87414;--goldbg:#f6ecd5;--silv:#56636f;--silvbg:#e4e8ec;--up:#12795a;--dn:#b3382c;--cubg:#f5e2d6;--cu:#a4552b;--fxbg:#e1e9f5;--fxc:#3a5f9a;--bidbg:#fbe9e6;--askbg:#e3f3ec;--acc:#1d4ed8;--onacc:#fff;--tint:#e8f0fe;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -12,7 +12,7 @@ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:en
 :root[data-theme="dark"]{--bg:#0b1730;--surf:#12223f;--ink:#e6edf8;--mut:#8fa3c2;--line:#22365a;--gold:#e0b355;--goldbg:#2d2614;--silv:#b4c0cb;--silvbg:#26313b;--up:#4fcf9f;--dn:#f0806f;--cubg:#33231b;--cu:#e29a73;--fxbg:#1d2a3d;--fxc:#8fb0e6;--bidbg:#3a2220;--askbg:#16322a;--acc:#4f8cff;--onacc:#fff;--tint:#1a2f55}
 html{color-scheme:light dark;scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.4 "IBM Plex Sans",system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.4 "IBM Plex Sans","IBM Plex Sans Thai",system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
 .app{max-width:480px;margin:0 auto;padding:14px 14px 96px}
 header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 h1{font-size:20px;font-weight:600;margin:0;letter-spacing:-.01em}
@@ -69,7 +69,7 @@ table{border-collapse:collapse;width:100%;min-width:600px;font-size:13px}th{font
 .ov{position:fixed;inset:0;background:rgba(10,18,24,.55);z-index:30;display:flex;align-items:center;justify-content:center;padding:16px}.md{background:var(--surf);border-radius:16px;padding:18px;width:100%;max-width:420px;max-height:90vh;overflow:auto}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 header{background:linear-gradient(135deg,#0a3a8a,#1d6fe0);border-radius:16px;padding:14px 16px;box-shadow:0 4px 14px rgba(29,78,216,.25)}
-header h1{color:#fff}header .live{color:rgba(255,255,255,.88)}
+header h1{color:#fff}header .brand{color:rgba(255,255,255,.85);font-size:12px;font-weight:500;margin-top:1px}header .live{color:rgba(255,255,255,.88)}
 .card,.list,.kpi,.tw{border:1px solid var(--line);box-shadow:0 1px 3px rgba(15,37,64,.06)}
 .tabs button[aria-selected="true"]{background:var(--acc);color:var(--onacc)}
 .nav{box-shadow:0 -2px 10px rgba(15,37,64,.06)}
@@ -84,7 +84,7 @@ input:focus,select:focus{border-color:var(--acc)}
 </head>
 <body>
 <div class="app">
-<header><h1>Baht Desk</h1><div class="live"><span class="dot" id="dot"></span><span id="stamp"></span><button class="ab" id="lockbtn" hidden>Log out</button></div></header>
+<header><div><h1>Baht Desk</h1><div class="brand">powered by เฮียอ้วนรวย โลหะกิจ</div></div><div class="live"><span class="dot" id="dot"></span><span id="stamp"></span><button class="ab" id="lockbtn" hidden>Log out</button></div></header>
 <section id="p_home" data-d></section>
 <section id="p_trade" data-d hidden></section>
 <section id="p_port" data-d hidden></section>
