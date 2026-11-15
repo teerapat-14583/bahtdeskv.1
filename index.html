@@ -375,7 +375,7 @@ function spot(c,n,v,u,ch){return '<div class="spot '+c+'"><div class="n">'+n+'</
 function home(){
   var p=P();
   var h='<div class="spots">'+spot("g","Gold (XAU/USD)",f(C.gold,2),"USD / troy oz",chg(C.gold,prev.gold))+spot("s","Silver (XAG/USD)",f(C.silver,2),"USD / troy oz",chg(C.silver,prev.silver))+spot("c","Copper ("+(C.liveCu?"COMEX":"LME")+")",f(C.lme,2),"USD / ton",chg(C.lme,prev.lme))+spot("f","Exchange rate",f(C.fx,4),"USD / THB","")+'</div>'+
-  '<div class="fx"><span>'+(C.liveCu?'Copper: COMEX HG futures (Gold-API)':'Copper: LME, typed by admin · '+luTxt()+(luOk()?'':' · expired, copper orders paused'))+'</span><span'+(demoOn()?'':' hidden')+'>Next update in <b id="cd">'+left+'</b>s</span></div>'+
+  '<div class="fx"><span>'+(C.liveCu?'Copper: COMEX HG futures (Gold-API)':'Copper: LME cash settlement · '+luTxt()+(luOk()?'':' · expired, copper orders paused'))+'</span><span'+(demoOn()?'':' hidden')+'>Next update in <b id="cd">'+left+'</b>s</span></div>'+
   '<div class="tabs" style="margin-top:16px"><button data-h="gold">Gold</button><button data-h="silver">Silver</button><button data-h="copper">Copper</button></div>';
   if(HT==="gold")h+=bb("Gold 99.99%","THB / kg",p.g99)+bb("Gold 96.5% แท่ง","THB / gold baht",p.bar)+bb("Gold 96.5% รูปพรรณ","THB / gold baht",p.orn);
   else if(HT==="silver")h+=bb("Silver 99.99%","THB / kg",p.s99)+bb("Silver 92.5%","THB / kg",p.s925)+'<p class="foot">VAT not included yet.</p>';
@@ -548,6 +548,27 @@ var LU_MS=864e5;
 function luOk(){return !!C.luT&&Date.now()-C.luT<LU_MS}
 function esc(t){return String(t==null?"":t).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function luTxt(){return C.luT?new Date(C.luT).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})+(C.luBy?" by "+esc(C.luBy):""):"not entered yet"}
+// ---- Daily LME copper: a scheduled task writes the latest LME cash settlement price to row 2 of a public Google Sheet.
+// Columns: A settlement date | B USD/t | C updated at (UTC, ISO) | D source. The page reads it on load and every 30 minutes.
+// The sheet price is used only when it is newer than the last admin entry, so a price typed in Setting still wins until the next daily update.
+var CU_SHEET="https://docs.google.com/spreadsheets/d/1GS_GNYuOh2VbNdRudF8SbF31P4mUTQsJd4SyZ0Kb4B4/gviz/tq?tqx=out:csv&sheet=LME&range=A2:D2&headers=0",cuBusy=false,cuT=0;
+// Google's CSV export quotes every field, so read the quoted fields of the first line.
+function csvRow(t){var line=String(t).split(/\r?\n/)[0]||"",out=[],m,re=/"((?:[^"]|"")*)"/g;while((m=re.exec(line)))out.push(m[1].replace(/""/g,'"'));return out}
+function pullCu(){
+  if(cuBusy||C.liveCu)return;cuBusy=true;
+  var a=new AbortController(),tm=setTimeout(function(){a.abort()},TMO);
+  fetch(CU_SHEET,{cache:"no-store",signal:a.signal}).then(function(r){if(!r.ok)throw new Error("HTTP "+r.status);return r.text()}).then(function(t){
+    var c=csvRow(t),px=parseFloat(String(c[1]||"").replace(/,/g,"")),ut=Date.parse(c[2]||""),dt=c[0]||"";
+    if(!(px>0)||!isFinite(ut)||ut>Date.now()+3e5)throw new Error("bad sheet row");
+    cuT=Date.now();
+    if(ut<=(C.luT||0))return;
+    if(px!==C.lme)prev.lme=C.lme;
+    C.lme=px;C.luT=ut;C.luBy="auto (LME "+dt+")";
+    // keep the admin's LME field in step, so pressing Save doesn't put the older typed price back
+    var el=$("a_l");if(el)el.value=C.lme;
+    render();
+  }).catch(function(){}).finally(function(){clearTimeout(tm);cuBusy=false});
+}
 function feedOk(pk){
   var cu=!!pk&&pk.charAt(0)==="c",x=!C.liveFx||(LIVE.xOk&&fresh(LIVE.fxT,18e5)),m=!C.live||(LIVE.mOk&&fresh(LIVE.mT)),c=!C.liveCu||(LIVE.cOk&&fresh(LIVE.cT));
   return pk?x&&(cu?(C.liveCu?c:luOk()):m):x&&m&&c;
@@ -600,10 +621,11 @@ setInterval(function(){
   if(!demoOn())return;left--;var cd=$("cd");if(cd)cd.textContent=left;
   if(left<=0){left=60;prev={gold:C.gold,silver:C.silver,lme:C.lme};C.gold*=1+(Math.random()-.5)*0.002;C.silver*=1+(Math.random()-.5)*0.004;C.lme*=1+(Math.random()-.5)*0.003;render()}
 },1000);
-tradeInit();setp();render();pull();
+tradeInit();setp();render();pull();pullCu();
 setInterval(function(){if(!document.hidden)pull()},60000);
+setInterval(function(){if(!document.hidden)pullCu()},18e5);
 var gateKey="";setInterval(function(){var k=[feedOk(),feedOk("g99"),feedOk("c0")].join();if(k!==gateKey){gateKey=k;paint();tradeCalc()}},3000);
-document.addEventListener("visibilitychange",function(){if(!document.hidden&&Date.now()-LIVE.t>15000)pull()});
+document.addEventListener("visibilitychange",function(){if(!document.hidden&&Date.now()-LIVE.t>15000)pull();if(!document.hidden&&Date.now()-cuT>6e5)pullCu()});
 (async function(){try{var u=await claude.use("user");if(u&&u.isOwner()){isOwner=true;who=String(u.name||u.displayName||u.email||"admin").slice(0,60);setp()}}catch(e){}})();
 </script>
 </body>
