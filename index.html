@@ -233,6 +233,17 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .acct button{text-align:left;border:1px solid var(--line);background:rgba(10,22,52,.85);color:#dbe6ff;border-radius:12px;padding:10px 12px}
 .acct button b{display:block;font-size:14px;color:#fff;margin-bottom:4px}.acct button small{display:block;font-size:11.5px;color:var(--mut);line-height:1.35}
 .acct button[aria-pressed="true"]{border-color:rgba(150,195,255,.8);background:linear-gradient(180deg,rgba(59,139,255,.35),rgba(26,95,224,.25));box-shadow:0 0 0 1px rgba(150,195,255,.4) inset}
+/* landing / log-in */
+#p_land{position:fixed;inset:0;z-index:20;overflow:auto;background:radial-gradient(120% 70% at 50% 0%,#12306b 0%,#071330 55%,#040b1f 100%)}
+body.gated .nav{display:none}
+.ld{max-width:440px;margin:0 auto;padding:22px 16px 40px}
+.ld-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:22px}
+.ld-top .brand{margin:0}
+.ld-card{padding:20px}
+.ld-card input{width:100%}
+.ld-or{display:flex;align-items:center;gap:10px;margin:18px 0 10px;color:var(--mut);font-size:13px}
+.ld-or:before,.ld-or:after{content:"";flex:1;height:1px;background:var(--line)}
+.ld-acc{margin:12px 0 0;padding-left:18px}.ld-acc li{margin:2px 0}
 </style>
 </head>
 <body>
@@ -1313,7 +1324,7 @@ $("p_desk").addEventListener("click",async function(e){
   if(b&&b.hasAttribute("data-ex")){var x=b.getAttribute("data-ex");if(x==="orders")expOrders();else if(x==="cust")expCust();else expBackup();return}
   if(t.id==="signout")signOut();
   else if(t.id==="sbnow"){await SB.sync();deskPage()}
-  else if(t.id==="sbout"){SB.signOut();deskPage()}
+  else if(t.id==="sbout"){SB.signOut();deskPage();landCheck()}
   else if(t.id==="sbin"){var st=$("sbStat");st.textContent="Connecting…";try{await SB.signIn($("sbe").value.trim(),$("sbp").value);
     // first connect: upload everything on this device
     orders().forEach(function(r){SB.queue("bd_orders",r.id)});custs().forEach(function(c){SB.queue("bd_customers",c.id)});ls("bd_since",{});await SB.sync();deskPage()}catch(er){st.innerHTML='<span class="dn">'+esc(er.message||er)+'</span>'}}
@@ -1442,7 +1453,7 @@ async function regSubmit(){
     if(tr){rec.company=co.slice(0,80);rec.idType="บัตรประชาชน (Thai ID)";rec.idNo=idn;rec.docs=docs;rec.sent=now}
     if(md==="new"||md==="finish")await clFetch("/rest/v1/bd_kyc_req",{m:"POST",h:{"Content-Type":"application/json","Prefer":"return=minimal"},b:JSON.stringify({id:id,data:rec})});
     else await clFetch("/rest/v1/bd_kyc_req?id=eq."+encodeURIComponent(id),{m:"PATCH",h:{"Content-Type":"application/json","Prefer":"return=minimal"},b:JSON.stringify({data:rec})});
-    RG={card:null,selfie:null,mode:"new",type:"observe"};await clLoad();home();
+    RG={card:null,selfie:null,mode:"new",type:"observe"};await clLoad();landCheck();home();
     modal('<div class="t">'+(tr?'ส่งข้อมูลเรียบร้อย · Submitted':'สมัครเรียบร้อย · You\'re registered')+'</div><p class="pg">'+(tr?'เจ้าหน้าที่จะตรวจสอบเอกสารและอนุมัติบัญชีซื้อขาย ดูสถานะได้ที่หน้าแรก (บัญชีของฉัน) · Our team will check your documents and approve your Trade account. See the status on the home page under My account.':'บัญชีดูราคาของคุณพร้อมใช้งาน · Your Observe account is ready. You can upgrade to a Trade account any time from My account.')+'</p>'+(C.co.line?'<a class="pri" href="'+esc(C.co.line)+'" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none">LINE เฮียอ้วนรวย</a>':'')+'<button class="pri ghost" data-close style="width:100%;margin-top:8px">ปิด · Close</button>');
   }catch(e){b.disabled=false;m.className="pg dn";m.textContent=(e.message||String(e));if(md==="new"&&CL.s&&!/taken/.test(e.message)){m.textContent+=" · บัญชีถูกสร้างแล้ว กรุณากดส่งอีกครั้ง · Your account was created: press Send again.";RG.mode="finish"}}
 }
@@ -1454,7 +1465,7 @@ document.addEventListener("click",function(e){
     else if(a==="upgrade"){RG.mode="upgrade";regOpen()}
     else if(a==="resend"){RG.mode="resend";regOpen()}
     else if(a==="login")loginOpen();
-    else if(a==="logout"){clOut();home()}}
+    else if(a==="logout"){clOut();home();landCheck()}}
   else if(e.target.id==="rg_go")regSubmit();else if(e.target.id==="lg_go")loginGo()});
 document.addEventListener("keydown",function(e){if(e.key==="Enter"&&(e.target.id==="lg_p"||e.target.id==="lg_u"))loginGo()});
 document.addEventListener("change",async function(e){var k=e.target.getAttribute&&e.target.getAttribute("data-shot");if(!k||!e.target.files[0])return;var m=$("rg_m");
@@ -1463,6 +1474,40 @@ document.addEventListener("change",async function(e){var k=e.target.getAttribute
 if(/^#register/.test(location.hash))setTimeout(function(){if(!CL.s){RG.mode="new";regOpen()}},300);
 window.addEventListener("hashchange",function(){if(/^#register/.test(location.hash)&&!CL.s){RG.mode="new";regOpen()}});
 if(CL.s)clLoad().then(function(){if(page==="home")home()});
+
+// ---- Landing / log-in page: shown before Home until someone logs in.
+// Clients log in with their username. Staff log in with their staff email (this also connects the device to the shared book).
+// The owner on claude.ai goes straight in. Thai or English, remembered on the device.
+var LANG=ls("bd_lang")||"th";
+var LT={
+  th:{t:"เข้าสู่ระบบ",s:"ราคาทอง เงิน ทองแดง สด ๆ และซื้อขายกับ เฮียอ้วนรวย โลหะกิจ",u:"ชื่อผู้ใช้",u2:"ชื่อผู้ใช้ หรืออีเมลพนักงาน",p:"รหัสผ่าน",go:"เข้าสู่ระบบ",no:"ยังไม่มีบัญชี?",su:"สมัครสมาชิก",fg:"ลืมรหัสผ่าน? ติดต่อเจ้าหน้าที่ทาง LINE",e1:"กรุณากรอกชื่อผู้ใช้และรหัสผ่าน",e2:"ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",e3:"บัญชีนี้ไม่ใช่บัญชีพนักงาน",w:"กำลังเข้าสู่ระบบ…",obs:"บัญชีดูราคา · สมัครได้ทันที",trd:"บัญชีซื้อขาย · ยืนยันตัวตนด้วยบัตรประชาชน"},
+  en:{t:"Log in",s:"Live gold, silver and copper prices, and trading with เฮียอ้วนรวย โลหะกิจ",u:"Username",u2:"Username, or staff email",p:"Password",go:"Log in",no:"No account yet?",su:"Sign up",fg:"Forgot your password? Contact our team on LINE.",e1:"Enter your username and password.",e2:"Wrong username or password.",e3:"This is not a staff account.",w:"Logging in…",obs:"Observe account · open at once",trd:"Trade account · verify with your ID card"}};
+function authed(){return isOwner||!!CL.s||SB.on()}
+function landCheck(){var el=$("p_land");if(authed()){if(el)el.remove();document.body.classList.remove("gated");return}
+  if(!el){el=document.createElement("div");el.id="p_land";document.body.appendChild(el)}document.body.classList.add("gated");landRender()}
+function landRender(){
+  var L=LT[LANG],el=$("p_land");if(!el)return;var keepU=$("ld_u")?$("ld_u").value:"";
+  el.innerHTML='<div class="ld"><div class="ld-top"><div class="brand"><span class="logo" role="img" aria-label="Baht Desk"></span><div><h1>Baht Desk</h1><small>powered by เฮียอ้วนรวย โลหะกิจ</small></div></div><div class="seg" role="group" aria-label="Language"><button data-lang="th"'+(LANG==="th"?' aria-pressed="true"':'')+'>ไทย</button><button data-lang="en"'+(LANG==="en"?' aria-pressed="true"':'')+'>EN</button></div></div>'+
+  '<div class="card ld-card"><div class="t" style="font-size:20px">'+L.t+'</div><p class="pg" style="margin:4px 0 14px">'+L.s+'</p>'+
+  '<label class="pg" for="ld_u">'+L.u+'</label><input id="ld_u" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="'+L.u2+'" value="'+esc(keepU)+'" style="margin:4px 0 10px">'+
+  '<label class="pg" for="ld_p">'+L.p+'</label><input id="ld_p" type="password" autocomplete="current-password" placeholder="'+L.p+'" style="margin-top:4px">'+
+  '<div class="pg dn" id="ld_m" style="margin-top:8px"></div><button class="pri" id="ld_go" style="width:100%;margin-top:14px">'+L.go+'</button>'+
+  '<div class="ld-or"><span>'+L.no+'</span></div><button class="pri ghost" data-reg="open" style="width:100%">'+L.su+'</button>'+
+  '<ul class="pg ld-acc"><li>'+L.obs+'</li><li>'+L.trd+'</li></ul>'+
+  '<p class="pg" style="margin:10px 0 0;text-align:center">'+(C.co.line?'<a href="'+esc(C.co.line)+'" target="_blank" rel="noopener">'+L.fg+'</a>':L.fg)+'</p></div></div>';
+}
+async function landGo(){
+  var L=LT[LANG],u=($("ld_u").value||"").trim(),p=$("ld_p").value,m=$("ld_m"),b=$("ld_go");
+  if(!u||!p){m.className="pg dn";m.textContent=L.e1;return}
+  m.className="pg";m.textContent=L.w;b.disabled=true;
+  try{
+    if(u.indexOf("@")>-1){await SB.signIn(u,p);orders().forEach(function(r){SB.queue("bd_orders",r.id)});custs().forEach(function(c){SB.queue("bd_customers",c.id)});SB.sync()}
+    else{await clAuth("token?grant_type=password",{email:u.toLowerCase()+"@"+CL_DOMAIN,password:p});await clLoad()}
+    landCheck();page="home";render();
+  }catch(e){b.disabled=false;m.className="pg dn";m.textContent=/not a staff/i.test(e.message)?L.e3:(/invalid/i.test(e.message)?L.e2:e.message)}
+}
+document.addEventListener("click",function(e){var l=e.target.closest("[data-lang]");if(l){LANG=l.getAttribute("data-lang");ls("bd_lang",LANG);landRender();return}if(e.target.id==="ld_go")landGo()});
+document.addEventListener("keydown",function(e){if(e.key==="Enter"&&(e.target.id==="ld_p"||e.target.id==="ld_u"))landGo()});
 
 // ---- Setting (owner only)
 function fld(l,id,v,sm,type){return '<div class="fld"><div>'+l+(sm?'<small>'+sm+'</small>':'')+'</div><input id="'+id+'" type="'+(type||"number")+'" '+(type?'':'step="any" inputmode="decimal" ')+'value="'+esc(v)+'"></div>'}
@@ -1571,13 +1616,13 @@ setInterval(function(){
   if(!demoOn())return;left--;var cd=$("cd");if(cd)cd.textContent=left;
   if(left<=0){left=60;prev={gold:C.gold,silver:C.silver,lme:C.lme};C.gold*=1+(Math.random()-.5)*0.002;C.silver*=1+(Math.random()-.5)*0.004;C.lme*=1+(Math.random()-.5)*0.003;render()}
 },1000);
-tradeInit();setp();render();pull();pullCu();
+tradeInit();setp();render();landCheck();pull();pullCu();
 setInterval(function(){if(!document.hidden)pull()},60000);
 setInterval(function(){if(!document.hidden)pullCu()},18e5);
 setInterval(function(){if(!document.hidden)SB.sync()},20000);SB.sync();
 var gateKey="";setInterval(function(){var k=[feedOk(),feedOk("g99"),feedOk("c0")].join();if(k!==gateKey){gateKey=k;paint();refreshLive()}},3000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&Date.now()-LIVE.t>15000)pull();if(!document.hidden&&Date.now()-cuT>6e5)pullCu();if(!document.hidden)SB.sync()});
-(async function(){try{var u=await claude.use("user");if(u&&u.isOwner()){isOwner=true;who=await (async function(){for(var k of ["name","displayName","email"]){var v=u[k];try{if(typeof v==="function")v=await v()}catch(e){v=""}if(v&&typeof v==="string")return v.slice(0,60)}return"admin"})();setp();render()}}catch(e){}})();
+(async function(){try{var u=await claude.use("user");if(u&&u.isOwner()){isOwner=true;landCheck();who=await (async function(){for(var k of ["name","displayName","email"]){var v=u[k];try{if(typeof v==="function")v=await v()}catch(e){v=""}if(v&&typeof v==="string")return v.slice(0,60)}return"admin"})();setp();render()}}catch(e){}})();
 
 </script>
 
