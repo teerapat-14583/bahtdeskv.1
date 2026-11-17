@@ -1266,7 +1266,8 @@ function dayPage(){
   return h;
 }
 function csvCell(v){v=v==null?"":String(v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
-function dl(name,text,type){var b=new Blob(["﻿"+text],{type:type||"text/csv;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000)}
+async function dl(name,text,type){try{if(window.claude&&claude.use){var d=await claude.use("downloads");if(d){await d.save({filename:name,data:"\ufeff"+text});return}}}catch(e){if(e&&/declin|cancel|denied/i.test(String(e.code||e.message)))return}dl0(name,text,type)}
+function dl0(name,text,type){var b=new Blob(["﻿"+text],{type:type||"text/csv;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000)}
 function expPage(){
   return '<h2>Monthly export for the accountant</h2><div class="card"><div class="fld"><div>Month</div><input id="dkm" type="month" value="'+DK.mon+'"></div><button class="pri" data-ex="orders" style="width:100%">Download orders CSV</button><p class="pg">One row per order (not quotes): date, customer and ID, product, side, weight, purity test result, rate, amount, VAT included, payment, status. Opens in Excel or Google Sheets.</p></div>'+
   '<div class="card"><button class="pri ghost" data-ex="cust" style="width:100%">Download customer list CSV</button></div>'+
