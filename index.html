@@ -229,6 +229,10 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 .shotbox{display:flex;align-items:center;justify-content:center;height:120px;border-radius:12px;border:1px dashed rgba(150,195,255,.5);background:rgba(10,22,52,.6);cursor:pointer;text-align:center;font-size:12px;color:#9cc0ff;overflow:hidden}
 .shotbox img{width:100%;height:100%;object-fit:cover}
 .regc{border-color:rgba(150,195,255,.5)}
+.acct{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.acct button{text-align:left;border:1px solid var(--line);background:rgba(10,22,52,.85);color:#dbe6ff;border-radius:12px;padding:10px 12px}
+.acct button b{display:block;font-size:14px;color:#fff;margin-bottom:4px}.acct button small{display:block;font-size:11.5px;color:var(--mut);line-height:1.35}
+.acct button[aria-pressed="true"]{border-color:rgba(150,195,255,.8);background:linear-gradient(180deg,rgba(59,139,255,.35),rgba(26,95,224,.25));box-shadow:0 0 0 1px rgba(150,195,255,.4) inset}
 </style>
 </head>
 <body>
@@ -767,7 +771,8 @@ var SB={
     if(!r.ok)throw new Error(j.error_description||j.msg||j.error||("HTTP "+r.status));
     this.s={at:j.access_token,rt:j.refresh_token,exp:Date.now()+(j.expires_in||3600)*1000,email:(j.user&&j.user.email)||(this.s&&this.s.email)||""};ls("bd_sb_s",this.s);return this.s;
   },
-  signIn:function(email,pw){return this.auth({email:email,password:pw},"password")},
+  // staff only: the account must carry role "staff" (set in Supabase), otherwise it cannot see the book
+  signIn:async function(email,pw){var s=await this.auth({email:email,password:pw},"password");var role="";try{role=JSON.parse(atob(s.at.split(".")[1].replace(/-/g,"+").replace(/_/g,"/"))).app_metadata.role}catch(e){}if(role!=="staff"){this.signOut();throw new Error("This is not a staff account. Use the shop account.")}return s},
   signOut:function(){this.s=null;try{localStorage.removeItem("bd_sb_s")}catch(e){}},
   token:async function(){if(this.s&&this.s.exp-Date.now()<120000)await this.auth({refresh_token:this.s.rt},"refresh_token")},
   req:async function(path,opt){
@@ -806,7 +811,7 @@ var SB={
       });
       since[tb]=s;
     }
-    ls("bd_since",since);if(ch){persist();ls("bd_kr",regs())}
+    ls("bd_since",since);if(ch){persist();ls("bd_kr",regs());observeCusts()}
     return ch;
   },
   sync:async function(){
@@ -816,6 +821,11 @@ var SB={
     finally{this.busy=false;var el=$("sbStat");if(el)el.innerHTML=sbStat()}
   }
 };
+// An Observe registration needs no approval: it becomes a customer (Observe account, no KYC) on the first staff device that syncs.
+// The customer id is fixed per client (CU-<client id>), so two devices doing it at once write the same record.
+function observeCusts(){regs().forEach(function(r){if(!r.uid||!r.name)return;var id="CU-"+r.uid,c=custById(id);
+  if(!c&&r.st==="observe"){c={id:id,ts:r.ts||Date.now(),by:"client",name:r.name,phone:r.phone||"",line:r.line||"",company:r.company||"",uid:r.uid,username:r.username||"",acc:"observe",limit:0,kyc:{st:"none"},docs:[]};klog(c,"Registered online · Observe account");putCust(c)}
+  else if(c&&kst(c)==="none"&&(c.phone!==(r.phone||c.phone)||c.line!==(r.line||c.line)||c.name!==r.name)){c.name=r.name;c.phone=r.phone||c.phone;c.line=r.line||c.line;putCust(c)}})}
 function sbStat(){
   if(!SB.cfg())return"Not set up. The owner adds the Supabase URL and key in Setting.";
   if(!SB.on())return"This device is not connected. Orders stay on this device only.";
@@ -1087,28 +1097,28 @@ document.addEventListener("click",function(e){
 // Clients register themselves (Home → Register, or the #register link): details + ID card photo + selfie with the ID card.
 // Staff cannot create or change KYC. An admin (admin PIN) looks at the documents and approves or rejects.
 // On approval the admin sets the account: Observe (prices and quotes only) or Trade, with a trading limit.
-var KSL={none:"Not verified",pending:"KYC pending approval",approved:"KYC approved",rejected:"KYC rejected"};
-var KSB={none:"Done",pending:"Quote",approved:"Booked",rejected:"Cancelled"};
+var KSL={none:"Observe account",observe:"Observe account",pending:"KYC pending approval",approved:"KYC approved",rejected:"KYC rejected"};
+var KSB={none:"Done",observe:"Done",pending:"Quote",approved:"Booked",rejected:"Cancelled"};
 var CQ="",CF="all";
 function kst(c){return c&&c.kyc&&c.kyc.st?c.kyc.st:"none"}
 function kycBadge(c){return bd(KSB[kst(c)],KSL[kst(c)])}
-function accBadge(c){return kycOk(c)?(c.acc==="trade"?bd("Paid","Trade account"):bd("Done","Observe account")):""}
+function accBadge(c){if(kst(c)==="none")return "";return kycOk(c)?(c.acc==="trade"?bd("Paid","Trade account"):bd("Done","Observe account")):""}
 function openExposure(cid,skip){var t=0;orders().forEach(function(r){if(r.cust===cid&&r.id!==skip&&(r.st==="Confirmed"||r.st==="Tested"||r.st==="Refine"))t+=r.fin||0});return t}
 function regLink(){return location.href.split("#")[0]+"#register"}
 function custPage(){
-  var C2=custs(),R=regs().filter(function(r){return r.st!=="approved"}),q=CQ.toLowerCase();
+  var C2=custs(),R=regs().filter(function(r){return r.st==="pending"||r.st==="rejected"}),q=CQ.toLowerCase();
   // one list: open registrations + customers
   var items=R.map(function(r){return{t:"r",o:r,s:r.st}}).concat(C2.map(function(c){return{t:"c",o:c,s:kst(c)}}));
-  var n={all:items.length,pending:0,approved:0,rejected:0};items.forEach(function(x){if(n[x.s]!=null)n[x.s]++});
+  var n={all:items.length,pending:0,approved:0,rejected:0,none:0};items.forEach(function(x){if(n[x.s]!=null)n[x.s]++});
   var L=items.filter(function(x){var o=x.o;return(CF==="all"||x.s===CF)&&(!q||(o.name+" "+(o.company||"")+" "+(o.phone||"")+" "+(o.line||"")+" "+(o.idNo||"")).toLowerCase().indexOf(q)>-1)}).sort(function(a,b){return(a.s==="pending"?0:1)-(b.s==="pending"?0:1)||a.o.name.localeCompare(b.o.name)});
-  var h='<div class="chips">'+[["all","All"],["pending","Pending approval"],["approved","Approved"],["rejected","Rejected"]].map(function(x){return '<button data-cf="'+x[0]+'"'+(CF===x[0]?' aria-pressed="true"':'')+'>'+x[1]+' <span>'+n[x[0]]+'</span></button>'}).join("")+'</div>';
+  var h='<div class="chips">'+[["all","All"],["pending","Pending approval"],["approved","Trade approved"],["rejected","Rejected"],["none","Observe"]].map(function(x){return '<button data-cf="'+x[0]+'"'+(CF===x[0]?' aria-pressed="true"':'')+'>'+x[1]+' <span>'+n[x[0]]+'</span></button>'}).join("")+'</div>';
   h+='<div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;margin-bottom:10px"><input id="cq" type="search" placeholder="Search name, phone, ID" value="'+esc(CQ)+'"><button class="pri ghost" id="rglink" title="Copy the registration link">Copy link</button><button class="pri" data-reg="open">Register</button></div><div class="pg" id="rglm" style="margin:-4px 0 8px"></div>';
   if(n.pending&&lvl()>=2&&CF!=="pending")h+='<div class="warn" style="margin:0 0 10px">'+n.pending+' registration'+(n.pending>1?'s are':' is')+' waiting for your approval.</div>';
   if(!SB.on())h+='<div class="warn" style="margin:0 0 10px">This device is not connected to the shared book, so new registrations from clients do not show here. An admin connects it once in Desk → Shared book.</div>';
   if(!L.length)return h+'<div class="card pg">'+(items.length?"Nothing matches.":"No customers yet. Clients register themselves from Baht Desk Home or the registration link.")+'</div>';
   var st=custStats();
   h+='<div class="list">'+L.map(function(x){var o=x.o;
-    if(x.t==="r")return '<button class="orow" data-reqv="'+esc(o.id)+'"><span><b>'+esc(o.name)+'</b>'+(o.company?'<span class="pg"> · '+esc(o.company)+'</span>':'')+'<div class="pg">'+[esc(o.phone||""),"Registered "+stamp(o.ts)].filter(Boolean).join(" · ")+'</div></span><span style="text-align:right"><div>'+bd(KSB[o.st],KSL[o.st])+'</div></span></button>';
+    if(x.t==="r")return '<button class="orow" data-reqv="'+esc(o.id)+'"><span><b>'+esc(o.name)+'</b>'+(o.company?'<span class="pg"> · '+esc(o.company)+'</span>':'')+'<div class="pg">'+[o.username?"@"+esc(o.username):"",esc(o.phone||""),"Registered "+stamp(o.ts)].filter(Boolean).join(" · ")+'</div></span><span style="text-align:right"><div>'+bd(KSB[o.st],KSL[o.st])+'</div></span></button>';
     var s=st[o.id]||{n:0};return '<button class="orow" data-cust="'+esc(o.id)+'"><span><b>'+esc(o.name)+'</b>'+(o.company?'<span class="pg"> · '+esc(o.company)+'</span>':'')+'<div class="pg">'+[esc(o.phone||""),canTrade(o)&&o.limit?'limit ฿'+f(o.limit,0):'',s.n+' order'+(s.n===1?'':'s')].filter(Boolean).join(' · ')+'</div></span><span style="text-align:right"><div>'+kycBadge(o)+'</div><div style="margin-top:4px">'+accBadge(o)+'</div></span></button>'}).join("")+'</div>';
   return h;
 }
@@ -1130,7 +1140,7 @@ function reqView(id){
   var r=regById(id);if(!r)return;
   var h='<div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div class="t">'+esc(r.name)+'</div><div class="pg">'+r.id+' · registered '+stamp(r.ts)+'</div></div><button class="ab" data-close>✕</button></div>';
   h+='<div class="kycbar k-'+r.st+'"><b>'+KSL[r.st]+'</b>'+(r.st==="rejected"&&r.note?'<span>'+esc(r.note)+'</span>':'')+'</div>';
-  h+='<div class="res" style="margin-top:10px"><div class="pg">'+idLine(r)+'<br>Phone '+esc(r.phone||"–")+' · LINE '+esc(r.line||"–")+(r.company?'<br>Company '+esc(r.company):'')+(r.by?'<br>Decided '+stamp(r.t)+' by '+esc(r.by):'')+'</div></div>';
+  h+='<div class="res" style="margin-top:10px"><div class="pg">'+(r.username?'Username @'+esc(r.username)+'<br>':'')+(r.first?'First name '+esc(r.first)+' · Last name '+esc(r.last||"")+'<br>':'')+idLine(r)+(r.phone||r.line?'<br>Phone '+esc(r.phone||"–")+' · LINE '+esc(r.line||"–"):'')+(r.company?'<br>Company '+esc(r.company):'')+(r.consent?'<br>PDPA consent given '+stamp(r.consent):'')+(r.resent?'<br>New photos sent '+stamp(r.resent):'')+(r.by?'<br>Decided '+stamp(r.t)+' by '+esc(r.by):'')+'</div></div>';
   h+='<h2>Documents from the client</h2>'+photos(r.docs);
   if(lvl()>=2&&r.st==="pending")h+=decisionPanel("req",r);
   else if(r.st==="pending")h+='<p class="pg">Waiting for an admin to check the documents and approve.</p>';
@@ -1171,16 +1181,18 @@ function apSave(kind,id){
     if(dec==="rejected"){r.st="rejected";r.note=note;r.by=actor();r.t=Date.now();putReg(r);reqView(id);renderData();return}
     if(!r.docs||r.docs.length<2){m.textContent="This registration is missing a photo. Reject it and ask the client to register again.";return}
     // same ID number as an existing customer → update that customer, otherwise create one
-    var c=custs().filter(function(x){return x.idNo&&x.idNo===r.idNo})[0]||{id:uid("CU"),ts:Date.now(),by:"client"};
-    c.name=r.name;c.company=r.company;c.phone=r.phone;c.line=r.line;c.idType=r.idType;c.idNo=r.idNo;c.docs=r.docs;
+    var c=(r.uid&&custById("CU-"+r.uid))||custs().filter(function(x){return x.idNo&&x.idNo===r.idNo})[0]||{id:r.uid?"CU-"+r.uid:uid("CU"),ts:Date.now(),by:"client"};
+    c.name=r.name;c.company=r.company;c.phone=r.phone||c.phone||"";c.line=r.line||c.line||"";c.idType=r.idType;c.idNo=r.idNo;c.docs=r.docs;if(r.uid){c.uid=r.uid;c.username=r.username}
     c.kyc={st:"approved",by:actor(),t:Date.now(),note:note,ref:r.id,subT:r.ts};c.acc=ac;c.limit=ac==="trade"?lim:0;
     klog(c,"Approved registration "+r.id+" · "+accT+(note?" · "+note:""));
-    r.st="approved";r.by=actor();r.t=Date.now();r.cust=c.id;r.note=note;
+    r.st="approved";r.by=actor();r.t=Date.now();r.cust=c.id;r.note=note;r.acc=ac;r.limit=c.limit;
     putCust(c);putReg(r);custView(c.id);renderData();return;
   }
   var cu=custById(id);if(!cu)return;
   if(dec==="rejected"){cu.kyc=Object.assign({},cu.kyc,{st:"rejected",by:actor(),t:Date.now(),note:note});cu.acc="observe";klog(cu,"Suspended: "+note)}
   else{cu.kyc=Object.assign({},cu.kyc,{st:"approved",by:actor(),t:Date.now(),note:note});cu.acc=ac;cu.limit=ac==="trade"?lim:0;klog(cu,"Account set: "+accT+(note?" · "+note:""))}
+  // the client sees their status from their registration record
+  regs().forEach(function(r){if(r.cust===cu.id){if(dec==="rejected"){r.st="rejected";r.note=note}else{r.st="approved";r.acc=cu.acc;r.limit=cu.limit;r.note=note}putReg(r)}});
   putCust(cu);custView(id);renderData();
 }
 // Staff can change contact details only. Name, ID and documents come from the client's registration.
@@ -1320,48 +1332,137 @@ function receipt(r){
   $("rcprint").onclick=function(){document.body.classList.add("printing");window.print();setTimeout(function(){document.body.classList.remove("printing")},500)};
 }
 
-// ---- Client self-registration (KYC). Open to anyone: from Home, or a direct link ending in #register (for the LINE Rich Menu).
-// The client fills in their details and takes two photos themselves: their ID card, and a selfie holding the ID card.
-// Photos are shrunk on the phone, then sent to the shop's private Supabase storage. The client cannot read anything back.
-var RG={card:null,selfie:null};
+// ---- Client accounts and self-registration
+// The client picks an account type when registering:
+//  - Observe: username, password, first/last name, phone, LINE ID, PDPA consent. Active at once (prices and quotes only).
+//  - Trade:   the same, plus company name, ID card number, ID card picture and a selfie holding the ID card.
+//             Waits for an admin to approve (or reject) from the documents and set the trading limit.
+// An Observe client can later upgrade to Trade by sending the extra details.
+// The account is a Supabase sign-in: it can only add and read its own registration, never the shop's book.
+// Usernames are turned into a sign-in address (<username>@CL_DOMAIN); clients never see or use that address.
+var CL_DOMAIN="clients.bahtdesk.app";
+var RG={card:null,selfie:null,mode:"new",type:"observe"};
+var CL={s:ls("bd_cl_s"),me:null,loaded:false};
 function thaiIdOk(s){s=String(s).replace(/\D/g,"");if(s.length!==13)return false;var t=0;for(var i=0;i<12;i++)t+=+s[i]*(13-i);return(11-t%11)%10===+s[12]}
 function shrink(file,max){return new Promise(function(ok,no){var u=URL.createObjectURL(file),im=new Image();im.onload=function(){var w=im.naturalWidth,h=im.naturalHeight,k=Math.min(1,max/Math.max(w,h)),cv=document.createElement("canvas");cv.width=Math.round(w*k);cv.height=Math.round(h*k);cv.getContext("2d").drawImage(im,0,0,cv.width,cv.height);URL.revokeObjectURL(u);cv.toBlob(function(b){b?ok(b):no(new Error("Could not read the photo"))},"image/jpeg",0.85)};im.onerror=function(){URL.revokeObjectURL(u);no(new Error("This file is not a photo"))};im.src=u})}
-function regCard(){return '<div class="card regc"><div class="t">ลงทะเบียนลูกค้า · Register to trade</div><p class="pg" style="margin:6px 0 12px">ยืนยันตัวตนด้วยรูปบัตรประชาชนและเซลฟี่คู่กับบัตร ใช้เวลาประมาณ 2 นาที · Verify with a photo of your ID card and a selfie holding it. About 2 minutes.</p><button class="pri" data-reg="open" style="width:100%">ลงทะเบียน · Register</button></div>'}
+function userOk(u){return /^[a-z0-9][a-z0-9._]{3,19}$/.test(u)}
+function phoneOk(p){return /^[0-9+\-\s]{9,15}$/.test(p)&&p.replace(/\D/g,"").length>=9}
+// ---- client session (separate from the staff sign-in)
+async function clAuth(path,body){
+  var c=SB.cfg();if(!c)throw new Error("Registration is not open yet");
+  var r=await fetch(c.url.replace(/\/$/,"")+"/auth/v1/"+path,{method:"POST",headers:{"apikey":c.key,"Content-Type":"application/json"},body:JSON.stringify(body)});
+  var j=await r.json().catch(function(){return{}});
+  if(!r.ok){var m=j.error_description||j.msg||j.message||j.error||("HTTP "+r.status);throw new Error(m)}
+  if(!j.access_token)throw new Error("Account created but not signed in. Please log in.");
+  CL.s={at:j.access_token,rt:j.refresh_token,exp:Date.now()+(j.expires_in||3600)*1000,uid:j.user&&j.user.id,user:(j.user&&j.user.user_metadata&&j.user.user_metadata.username)||""};ls("bd_cl_s",CL.s);return CL.s;
+}
+async function clToken(){if(CL.s&&CL.s.exp-Date.now()<120000){try{await clAuth("token?grant_type=refresh_token",{refresh_token:CL.s.rt})}catch(e){clOut();throw new Error("Please log in again")}}}
+function clOut(){CL.s=null;CL.me=null;CL.loaded=false;try{localStorage.removeItem("bd_cl_s")}catch(e){}}
+async function clFetch(path,opt){
+  await clToken();if(!CL.s)throw new Error("Please log in");opt=opt||{};var c=SB.cfg(),h={"apikey":c.key,"Authorization":"Bearer "+CL.s.at};for(var k in (opt.h||{}))h[k]=opt.h[k];
+  var r=await fetch(c.url.replace(/\/$/,"")+path,{method:opt.m||"GET",headers:h,body:opt.b});
+  if(!r.ok){var t=await r.text().catch(function(){return""});throw new Error("HTTP "+r.status+" "+t.slice(0,100))}
+  return r.status===204||r.status===201?null:r.json().catch(function(){return null});
+}
+async function clLoad(){if(!CL.s)return null;try{var rows=await clFetch("/rest/v1/bd_kyc_req?select=data");CL.me=rows&&rows[0]?rows[0].data:null;CL.loaded=true}catch(e){if(/log in/.test(e.message))CL.me=null}return CL.me}
+// ---- Home card
+var CLS={observe:["Done","บัญชีดูราคา · Observe account"],pending:["Quote","รอตรวจสอบ · Waiting for approval"],approved:["Booked","อนุมัติแล้ว · Approved"],rejected:["Cancelled","ไม่อนุมัติ · Not approved"]};
+function regCard(){
+  if(CL.s){var m=CL.me,st=m&&CLS[m.st],up='<button class="pri" data-reg="upgrade" style="width:100%">อัปเกรดเป็นบัญชีซื้อขาย · Upgrade to Trade account</button>';
+    var body;
+    if(!m)body=CL.loaded?'<p class="pg">ยังไม่ได้ส่งข้อมูล · Your details have not been sent yet.</p><button class="pri" data-reg="finish" style="width:100%">ส่งข้อมูล · Send details</button>':'<p class="pg">กำลังโหลด… · Loading…</p>';
+    else if(m.st==="observe")body='<div style="margin-top:10px">'+bd(st[0],st[1])+'</div><p class="pg">ดูราคาและขอใบเสนอราคาได้ หากต้องการซื้อขาย กรุณาอัปเกรด · You can see prices and ask for quotes. To trade, upgrade to a Trade account.</p>'+up;
+    else if(m.st==="approved")body='<div style="margin-top:10px">'+bd(st[0],st[1])+'</div><p class="pg">'+(m.acc==="trade"?'บัญชีซื้อขาย · Trade account'+(m.limit?' · วงเงิน · limit ฿'+f(m.limit,0):''):'บัญชีดูราคา · Observe account (prices and quotes)')+'</p>';
+    else if(m.st==="rejected")body='<div style="margin-top:10px">'+bd(st[0],st[1])+'</div><p class="pg">'+(m.note?'เหตุผล · Reason: '+esc(m.note)+'<br>':'')+'กรุณาส่งข้อมูลใหม่ · Please send your details again.</p><button class="pri" data-reg="resend" style="width:100%">ส่งข้อมูลใหม่ · Send again</button>';
+    else body='<div style="margin-top:10px">'+bd(st[0],st[1])+'</div><p class="pg">เจ้าหน้าที่กำลังตรวจสอบเอกสาร · Our team is checking your documents for a Trade account.</p>';
+    return '<div class="card regc"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div class="t">บัญชีของฉัน · My account</div><button class="ab" data-reg="logout" style="margin:0">ออกจากระบบ · Log out</button></div><div class="pg" style="margin-top:4px">'+esc(m?m.name:CL.s.user)+(m&&m.username?' · @'+esc(m.username):'')+'</div>'+body+'</div>';}
+  return '<div class="card regc"><div class="t">ลงทะเบียนลูกค้า · Register</div><p class="pg" style="margin:6px 0 12px">บัญชีดูราคา สมัครได้ทันที · บัญชีซื้อขาย ต้องยืนยันตัวตนด้วยรูปบัตรประชาชนและเซลฟี่คู่กับบัตร · Observe account: open at once. Trade account: verify with your ID card and a selfie holding it.</p><div class="g2" style="margin:0"><button class="pri" data-reg="open">ลงทะเบียน · Register</button><button class="pri ghost" data-reg="login">เข้าสู่ระบบ · Log in</button></div></div>';
+}
 function shot(k,lab,sub,cap){var p=RG[k];return '<div class="shot"><div><b>'+lab+'</b><small>'+sub+'</small></div><label class="shotbox">'+(p?'<img src="'+p.url+'" alt="">':'<span>📷<br>ถ่ายรูป · Take photo</span>')+'<input type="file" accept="image/*" capture="'+cap+'" data-shot="'+k+'" hidden></label></div>'}
-function regOpen(){
+var RGF=["u","pw","pw2","fn","ln","ph","li","c","i"];
+function regKeep(){var v={};RGF.forEach(function(k){var e=$("rg_"+k);if(e)v[k]=e.value});var ok=$("rg_ok");v.ok=ok&&ok.checked;return v}
+// mode: new (create account) · finish (account exists, no details yet) · upgrade (Observe → Trade) · resend (after a rejection)
+function regOpen(keep){
   if(!SB.cfg()){modal('<div class="t">Registration</div><p class="pg">Registration is not open yet. Please contact our sales team.</p><button class="pri" data-close style="width:100%">OK</button>');return}
-  var v=function(k){var e=$("rg_"+k);return e?esc(e.value):""};
-  modal('<div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div class="t">ลงทะเบียนลูกค้า</div><div class="pg">Register to trade with เฮียอ้วนรวย โลหะกิจ</div></div><button class="ab" data-close>✕</button></div>'+
-  '<input id="rg_n" placeholder="ชื่อ-นามสกุล · Full name *" autocomplete="name" style="margin-top:12px" value="'+v("n")+'"><div class="g2" style="margin:8px 0 0"><input id="rg_p" type="tel" placeholder="เบอร์โทร · Phone *" autocomplete="tel" value="'+v("p")+'"><input id="rg_l" placeholder="LINE ID" value="'+v("l")+'"></div><input id="rg_c" placeholder="บริษัท (ถ้ามี) · Company (optional)" style="margin-top:8px" value="'+v("c")+'">'+
-  '<div class="g2" style="margin:8px 0 0"><select id="rg_t"><option>บัตรประชาชน (Thai ID)</option><option>Passport</option></select><input id="rg_i" inputmode="numeric" placeholder="เลขบัตร · ID number *" value="'+v("i")+'"></div>'+
-  '<h2 style="margin-top:14px">รูปถ่าย · Photos</h2>'+shot("card","1. รูปบัตร · Your ID card","ถ่ายด้านหน้าบัตรให้เห็นชัดทั้งใบ · Front of the card, all of it in the photo, readable","environment")+shot("selfie","2. เซลฟี่คู่กับบัตร · Selfie with your ID card","ถือบัตรข้างใบหน้า ให้เห็นทั้งหน้าและบัตร · Hold the card next to your face, both clearly visible","user")+
-  '<label class="pg" style="display:block;margin-top:12px"><input type="checkbox" id="rg_ok"> ข้าพเจ้ายินยอมให้เก็บข้อมูลและรูปถ่ายนี้เพื่อการยืนยันตัวตน (KYC) และการซื้อขาย · I consent to the collection of these details and photos for identity verification (KYC) and trading.</label>'+
-  '<div class="pg dn" id="rg_m" style="margin-top:8px"></div><button class="pri" id="rg_go" style="width:100%;margin-top:12px">ส่งข้อมูล · Submit</button>');
+  var md=RG.mode,me=CL.me||{},k=keep||{};
+  if(!keep&&(md==="upgrade"||md==="resend")){k={c:me.company||"",i:me.idNo||"",fn:me.first||"",ln:me.last||"",ph:me.phone||"",li:me.line||""}}
+  if(md==="upgrade"||(md==="resend"&&me.want==="trade"))RG.type="trade";
+  if(md==="resend"&&me.want!=="trade")RG.type="observe";
+  var tr=RG.type==="trade",v=function(x){return esc(k[x]||"")},acct=md==="new",basic=md==="new"||md==="finish"||md==="resend";
+  var title={new:"ลงทะเบียนลูกค้า · Register",finish:"ส่งข้อมูล · Send details",upgrade:"อัปเกรดเป็นบัญชีซื้อขาย · Upgrade to Trade",resend:"ส่งข้อมูลใหม่ · Send again"}[md];
+  modal('<div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div class="t">'+title+'</div><div class="pg">เฮียอ้วนรวย โลหะกิจ · Baht Desk</div></div><button class="ab" data-close>✕</button></div>'+
+  (md==="new"||md==="finish"?'<h2 style="margin-top:12px">ประเภทบัญชี · Account type</h2><div class="acct"><button data-rt="observe"'+(tr?'':' aria-pressed="true"')+'><b>บัญชีดูราคา<br>Observe</b><small>ดูราคา ขอใบเสนอราคา ใช้ได้ทันที · Prices and quotes. Open at once.</small></button><button data-rt="trade"'+(tr?' aria-pressed="true"':'')+'><b>บัญชีซื้อขาย<br>Trade</b><small>ซื้อขายได้ ต้องยืนยันตัวตน · Buy and sell. Needs ID check and approval.</small></button></div>':'')+
+  (acct?'<h2 style="margin-top:14px">บัญชี · Account</h2><input id="rg_u" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="ชื่อผู้ใช้ · Username *" value="'+v("u")+'"><div class="pg" style="margin-top:2px">4–20 ตัว a–z 0–9 . _ · 4–20 letters, numbers, . or _</div><div class="g2" style="margin:8px 0 0"><input id="rg_pw" type="password" autocomplete="new-password" placeholder="รหัสผ่าน · Password *" value="'+v("pw")+'"><input id="rg_pw2" type="password" autocomplete="new-password" placeholder="ยืนยันรหัสผ่าน · Confirm *" value="'+v("pw2")+'"></div><div class="pg" style="margin-top:2px">อย่างน้อย 8 ตัว · At least 8 characters</div>':'')+
+  (basic?'<h2 style="margin-top:14px">ข้อมูลติดต่อ · Your details</h2><div class="g2" style="margin:0"><input id="rg_fn" autocomplete="given-name" placeholder="ชื่อ · First name *" value="'+v("fn")+'"><input id="rg_ln" autocomplete="family-name" placeholder="นามสกุล · Last name *" value="'+v("ln")+'"></div><div class="g2" style="margin:8px 0 0"><input id="rg_ph" type="tel" autocomplete="tel" placeholder="เบอร์โทร · Phone *" value="'+v("ph")+'"><input id="rg_li" autocapitalize="none" placeholder="LINE ID *" value="'+v("li")+'"></div>':'')+
+  (tr?'<h2 style="margin-top:14px">สำหรับบัญชีซื้อขาย · For a Trade account</h2><input id="rg_c" placeholder="ชื่อบริษัท · Company name *" value="'+v("c")+'"><input id="rg_i" inputmode="numeric" placeholder="เลขบัตรประชาชน · ID card number *" style="margin-top:8px" value="'+v("i")+'">'+
+    shot("card","1. รูปบัตรประชาชน · ID card picture","ถ่ายด้านหน้าบัตรให้เห็นชัดทั้งใบ · Front of the card, all of it, readable","environment")+shot("selfie","2. เซลฟี่คู่กับบัตร · Selfie with your ID card","ถือบัตรข้างใบหน้า ให้เห็นทั้งหน้าและบัตร · Hold the card next to your face, both clearly visible","user"):'')+
+  '<label class="pg" style="display:block;margin-top:12px"><input type="checkbox" id="rg_ok"'+(k.ok?" checked":"")+'> ข้าพเจ้ายินยอมให้ เฮียอ้วนรวย โลหะกิจ เก็บและใช้ข้อมูลส่วนบุคคล'+(tr?'และรูปถ่าย เพื่อการยืนยันตัวตน (KYC) และ':'เพื่อ')+'การให้บริการ ตามพระราชบัญญัติคุ้มครองข้อมูลส่วนบุคคล (PDPA) · I consent to the collection and use of my personal data'+(tr?' and photos for identity verification (KYC) and':' for')+' the service, under Thailand\'s Personal Data Protection Act (PDPA). *</label>'+
+  '<div class="pg dn" id="rg_m" style="margin-top:8px"></div><button class="pri" id="rg_go" style="width:100%;margin-top:12px">'+(md==="new"?(tr?'สมัครและส่งเอกสาร · Register and send':'สมัคร · Register'):'ส่ง · Send')+'</button>');
+}
+function loginOpen(){
+  modal('<div style="display:flex;justify-content:space-between;align-items:flex-start"><div class="t">เข้าสู่ระบบ · Log in</div><button class="ab" data-close>✕</button></div><input id="lg_u" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="ชื่อผู้ใช้ · Username" style="margin-top:12px"><input id="lg_p" type="password" autocomplete="current-password" placeholder="รหัสผ่าน · Password" style="margin-top:8px"><div class="pg dn" id="lg_m" style="margin-top:8px"></div><button class="pri" id="lg_go" style="width:100%;margin-top:12px">เข้าสู่ระบบ · Log in</button><p class="pg">ลืมรหัสผ่าน ติดต่อเจ้าหน้าที่ · Forgot your password? Contact our team.</p>');
+}
+async function loginGo(){
+  var u=($("lg_u").value||"").trim().toLowerCase(),p=$("lg_p").value,m=$("lg_m");
+  if(!u||!p){m.textContent="กรุณากรอกชื่อผู้ใช้และรหัสผ่าน · Enter your username and password.";return}
+  m.className="pg";m.textContent="…";
+  try{await clAuth("token?grant_type=password",{email:u+"@"+CL_DOMAIN,password:p});modal(null);await clLoad();home()}
+  catch(e){m.className="pg dn";m.textContent=/invalid/i.test(e.message)?"ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง · Wrong username or password.":e.message}
 }
 async function regSubmit(){
-  var m=$("rg_m"),g=function(k){return($("rg_"+k).value||"").trim()},n=g("n"),ph=g("p"),idt=$("rg_t").value,idn=g("i").replace(/[\s-]/g,"");
+  var m=$("rg_m"),g=function(k){var e=$("rg_"+k);return e?(e.value||"").trim():null},md=RG.mode,tr=RG.type==="trade",me=CL.me||{},u,pw;
   m.className="pg dn";
-  if(!n||!ph||!idn){m.textContent="กรุณากรอก ชื่อ เบอร์โทร และเลขบัตร · Please fill in name, phone and ID number.";return}
-  if(idt.indexOf("Thai")>-1&&!thaiIdOk(idn)){m.textContent="เลขบัตรประชาชนไม่ถูกต้อง · The Thai ID number is not valid. Check the 13 digits.";return}
-  if(!RG.card||!RG.selfie){m.textContent="กรุณาถ่ายรูปบัตร และเซลฟี่คู่กับบัตร · Please take both photos.";return}
-  if(!$("rg_ok").checked){m.textContent="กรุณากดยินยอม · Please tick the consent box.";return}
+  if(md==="new"){u=(g("u")||"").toLowerCase();pw=$("rg_pw").value;
+    if(!userOk(u)){m.textContent="ชื่อผู้ใช้ 4–20 ตัว ใช้ a–z 0–9 . _ · Username: 4–20 characters, a–z, 0–9, . or _ (start with a letter or number).";return}
+    if(pw.length<8){m.textContent="รหัสผ่านอย่างน้อย 8 ตัว · Password must be at least 8 characters.";return}
+    if(pw!==$("rg_pw2").value){m.textContent="รหัสผ่านไม่ตรงกัน · The passwords do not match.";return}}
+  var fn=g("fn"),ln=g("ln"),ph=g("ph"),li=g("li");
+  if(fn!==null){
+    if(!fn||!ln){m.textContent="กรุณากรอกชื่อและนามสกุล · Please enter your first and last name.";return}
+    if(!phoneOk(ph||"")){m.textContent="กรุณากรอกเบอร์โทรให้ถูกต้อง · Please enter a valid phone number.";return}
+    if(!li){m.textContent="กรุณากรอก LINE ID · Please enter your LINE ID.";return}}
+  var co=g("c"),idn=(g("i")||"").replace(/[\s-]/g,"");
+  if(tr){
+    if(!co){m.textContent="กรุณากรอกชื่อบริษัท · Please enter the company name.";return}
+    if(!thaiIdOk(idn)){m.textContent="เลขบัตรประชาชนไม่ถูกต้อง · The ID card number is not valid. Check the 13 digits.";return}
+    if(!RG.card||!RG.selfie){m.textContent="กรุณาถ่ายรูปบัตร และเซลฟี่คู่กับบัตร · Please take both photos.";return}}
+  if(!$("rg_ok").checked){m.textContent="กรุณากดยินยอม PDPA · Please tick the PDPA consent.";return}
   var b=$("rg_go");b.disabled=true;m.className="pg";m.textContent="กำลังส่ง… · Sending…";
-  var id="KYC-"+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,5).toUpperCase(),now=Date.now();
   try{
-    var docs=[];
-    for(var k of ["card","selfie"]){var path="reg/"+id+"/"+(k==="card"?"id-card":"selfie-with-id")+".jpg";await SB.anonUpload(path,RG[k].blob);docs.push({name:k==="card"?"ID card.jpg":"Selfie with ID card.jpg",kind:k==="card"?"ID card photo":"Selfie with ID card",path:path,type:"image/jpeg",size:RG[k].blob.size,t:now,by:"client"})}
-    var rec={id:id,ts:now,upd:now,st:"pending",src:"self",name:n.slice(0,80),phone:ph.slice(0,30),line:g("l").slice(0,40),company:g("c").slice(0,80),idType:idt,idNo:idn.slice(0,30),docs:docs,consent:now};
-    await SB.anonInsert("bd_kyc_req",{id:id,data:rec});
-    RG={card:null,selfie:null};
-    modal('<div class="t">ส่งข้อมูลเรียบร้อย · Submitted</div><div class="res" style="margin-top:10px"><div class="pg">เลขอ้างอิง · Reference</div><div class="big" style="font-size:22px">'+id+'</div></div><p class="pg">เจ้าหน้าที่จะตรวจสอบเอกสารและติดต่อกลับทาง LINE หรือโทรศัพท์ · Our team will check your documents and contact you by LINE or phone.</p>'+(C.co.line?'<a class="pri" href="'+esc(C.co.line)+'" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none">LINE เฮียอ้วนรวย</a>':'')+'<button class="pri ghost" data-close style="width:100%;margin-top:8px">ปิด · Close</button>');
-  }catch(e){b.disabled=false;m.className="pg dn";m.textContent="ส่งไม่สำเร็จ ลองใหม่อีกครั้ง · Could not send: "+(e.message||e)}
+    if(md==="new"){
+      try{await clAuth("signup",{email:u+"@"+CL_DOMAIN,password:pw,data:{username:u,role:"client"}})}
+      catch(e){if(/registered|exists/i.test(e.message))throw new Error("ชื่อผู้ใช้นี้มีคนใช้แล้ว · This username is taken. Choose another, or log in.");throw e}}
+    var uid=CL.s.uid,now=Date.now(),id="KYC-"+uid,docs=null;
+    if(tr){docs=[];for(var k of ["card","selfie"]){var path="reg/"+uid+"/"+now+"-"+(k==="card"?"id-card":"selfie-with-id")+".jpg";
+      await clFetch("/storage/v1/object/bd-kyc/"+path,{m:"POST",h:{"Content-Type":"image/jpeg","x-upsert":"false"},b:RG[k].blob});
+      docs.push({name:k==="card"?"ID card.jpg":"Selfie with ID card.jpg",kind:k==="card"?"ID card picture":"Selfie with ID card",path:path,type:"image/jpeg",size:RG[k].blob.size,t:now,by:"client"})}}
+    var rec=Object.assign({},me,{id:id,uid:uid,src:"self",upd:now,consent:now,want:tr?"trade":"observe",st:tr?"pending":"observe",note:""});
+    if(md==="new"||md==="finish"){rec.username=u||CL.s.user||"";rec.ts=now}
+    if(fn!==null){rec.first=fn.slice(0,40);rec.last=ln.slice(0,40);rec.name=(fn+" "+ln).slice(0,80);rec.phone=ph.slice(0,20);rec.line=li.slice(0,40)}
+    if(tr){rec.company=co.slice(0,80);rec.idType="บัตรประชาชน (Thai ID)";rec.idNo=idn;rec.docs=docs;rec.sent=now}
+    if(md==="new"||md==="finish")await clFetch("/rest/v1/bd_kyc_req",{m:"POST",h:{"Content-Type":"application/json","Prefer":"return=minimal"},b:JSON.stringify({id:id,data:rec})});
+    else await clFetch("/rest/v1/bd_kyc_req?id=eq."+encodeURIComponent(id),{m:"PATCH",h:{"Content-Type":"application/json","Prefer":"return=minimal"},b:JSON.stringify({data:rec})});
+    RG={card:null,selfie:null,mode:"new",type:"observe"};await clLoad();home();
+    modal('<div class="t">'+(tr?'ส่งข้อมูลเรียบร้อย · Submitted':'สมัครเรียบร้อย · You\'re registered')+'</div><p class="pg">'+(tr?'เจ้าหน้าที่จะตรวจสอบเอกสารและอนุมัติบัญชีซื้อขาย ดูสถานะได้ที่หน้าแรก (บัญชีของฉัน) · Our team will check your documents and approve your Trade account. See the status on the home page under My account.':'บัญชีดูราคาของคุณพร้อมใช้งาน · Your Observe account is ready. You can upgrade to a Trade account any time from My account.')+'</p>'+(C.co.line?'<a class="pri" href="'+esc(C.co.line)+'" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none">LINE เฮียอ้วนรวย</a>':'')+'<button class="pri ghost" data-close style="width:100%;margin-top:8px">ปิด · Close</button>');
+  }catch(e){b.disabled=false;m.className="pg dn";m.textContent=(e.message||String(e));if(md==="new"&&CL.s&&!/taken/.test(e.message)){m.textContent+=" · บัญชีถูกสร้างแล้ว กรุณากดส่งอีกครั้ง · Your account was created: press Send again.";RG.mode="finish"}}
 }
-document.addEventListener("click",function(e){var b=e.target.closest("[data-reg]");if(b){e.preventDefault();regOpen()}else if(e.target.id==="rg_go")regSubmit()});
+document.addEventListener("click",function(e){
+  var t=e.target.closest("[data-rt]");if(t){var kp=regKeep();RG.type=t.getAttribute("data-rt");regOpen(kp);return}
+  var b=e.target.closest("[data-reg]");if(b){e.preventDefault();var a=b.getAttribute("data-reg");
+    if(a==="open"){RG.mode="new";RG.type="observe";regOpen()}
+    else if(a==="finish"){RG.mode="finish";regOpen()}
+    else if(a==="upgrade"){RG.mode="upgrade";regOpen()}
+    else if(a==="resend"){RG.mode="resend";regOpen()}
+    else if(a==="login")loginOpen();
+    else if(a==="logout"){clOut();home()}}
+  else if(e.target.id==="rg_go")regSubmit();else if(e.target.id==="lg_go")loginGo()});
+document.addEventListener("keydown",function(e){if(e.key==="Enter"&&(e.target.id==="lg_p"||e.target.id==="lg_u"))loginGo()});
 document.addEventListener("change",async function(e){var k=e.target.getAttribute&&e.target.getAttribute("data-shot");if(!k||!e.target.files[0])return;var m=$("rg_m");
-  try{var bl=await shrink(e.target.files[0],1600);if(RG[k])URL.revokeObjectURL(RG[k].url);RG[k]={blob:bl,url:URL.createObjectURL(bl)};var keep={};["n","p","l","c","i"].forEach(function(x){keep[x]=$("rg_"+x).value});var t=$("rg_t").value,ok=$("rg_ok").checked;regOpen();["n","p","l","c","i"].forEach(function(x){$("rg_"+x).value=keep[x]});$("rg_t").value=t;$("rg_ok").checked=ok}
+  try{var bl=await shrink(e.target.files[0],1600);if(RG[k])URL.revokeObjectURL(RG[k].url);RG[k]={blob:bl,url:URL.createObjectURL(bl)};regOpen(regKeep())}
   catch(er){if(m){m.className="pg dn";m.textContent=er.message}}});
-if(/^#register/.test(location.hash))setTimeout(regOpen,300);
-window.addEventListener("hashchange",function(){if(/^#register/.test(location.hash))regOpen()});
+if(/^#register/.test(location.hash))setTimeout(function(){if(!CL.s){RG.mode="new";regOpen()}},300);
+window.addEventListener("hashchange",function(){if(/^#register/.test(location.hash)&&!CL.s){RG.mode="new";regOpen()}});
+if(CL.s)clLoad().then(function(){if(page==="home")home()});
 
 // ---- Setting (owner only)
 function fld(l,id,v,sm,type){return '<div class="fld"><div>'+l+(sm?'<small>'+sm+'</small>':'')+'</div><input id="'+id+'" type="'+(type||"number")+'" '+(type?'':'step="any" inputmode="decimal" ')+'value="'+esc(v)+'"></div>'}
