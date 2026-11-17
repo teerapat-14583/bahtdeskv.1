@@ -244,6 +244,8 @@ body.gated .nav{display:none}
 .ld-or{display:flex;align-items:center;gap:10px;margin:18px 0 10px;color:var(--mut);font-size:13px}
 .ld-or:before,.ld-or:after{content:"";flex:1;height:1px;background:var(--line)}
 .ld-acc{margin:12px 0 0;padding-left:18px}.ld-acc li{margin:2px 0}
+.linebtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:0;border-radius:12px;padding:12px;background:#06C755;color:#fff;font-weight:600;font-size:15px;cursor:pointer}
+.linebtn:hover{background:#05b34c}
 </style>
 </head>
 <body>
@@ -1375,6 +1377,16 @@ async function clFetch(path,opt){
   if(!r.ok){var t=await r.text().catch(function(){return""});throw new Error("HTTP "+r.status+" "+t.slice(0,100))}
   return r.status===204||r.status===201?null:r.json().catch(function(){return null});
 }
+// ---- Log in with LINE (Supabase custom provider "custom:line"). Supabase sends the person back here with the session in the address.
+var LINE_PROVIDER="custom:line";
+function lineLogin(){var c=SB.cfg();if(!c)return;var back=location.origin+location.pathname;location.href=c.url.replace(/\/$/,"")+"/auth/v1/authorize?provider="+encodeURIComponent(LINE_PROVIDER)+"&redirect_to="+encodeURIComponent(back)}
+function jwtBody(t){try{return JSON.parse(decodeURIComponent(escape(atob(t.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")))))}catch(e){return{}}}
+var LINE_ERR="";
+(function(){var h=location.hash||"";if(h.indexOf("access_token=")<0&&h.indexOf("error")<0)return;var q=new URLSearchParams(h.slice(1));
+  if(q.get("access_token")){var at=q.get("access_token"),b=jwtBody(at),md=b.user_metadata||{};
+    CL.s={at:at,rt:q.get("refresh_token"),exp:Date.now()+(+q.get("expires_in")||3600)*1000,uid:b.sub,user:"",via:"line",lname:md.name||md.full_name||md.display_name||""};ls("bd_cl_s",CL.s)}
+  else if(q.get("error"))LINE_ERR=(q.get("error_description")||q.get("error")).replace(/\+/g," ");
+  try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}})();
 async function clLoad(){if(!CL.s)return null;try{var rows=await clFetch("/rest/v1/bd_kyc_req?select=data");CL.me=rows&&rows[0]?rows[0].data:null;CL.loaded=true}catch(e){if(/log in/.test(e.message))CL.me=null}return CL.me}
 // ---- Home card
 var CLS={observe:["Done","บัญชีดูราคา · Observe account"],pending:["Quote","รอตรวจสอบ · Waiting for approval"],approved:["Booked","อนุมัติแล้ว · Approved"],rejected:["Cancelled","ไม่อนุมัติ · Not approved"]};
@@ -1386,7 +1398,7 @@ function regCard(){
     else if(m.st==="approved")body='<div style="margin-top:10px">'+bd(st[0],st[1])+'</div><p class="pg">'+(m.acc==="trade"?'บัญชีซื้อขาย · Trade account'+(m.limit?' · วงเงิน · limit ฿'+f(m.limit,0):''):'บัญชีดูราคา · Observe account (prices and quotes)')+'</p>';
     else if(m.st==="rejected")body='<div style="margin-top:10px">'+bd(st[0],st[1])+'</div><p class="pg">'+(m.note?'เหตุผล · Reason: '+esc(m.note)+'<br>':'')+'กรุณาส่งข้อมูลใหม่ · Please send your details again.</p><button class="pri" data-reg="resend" style="width:100%">ส่งข้อมูลใหม่ · Send again</button>';
     else body='<div style="margin-top:10px">'+bd(st[0],st[1])+'</div><p class="pg">เจ้าหน้าที่กำลังตรวจสอบเอกสาร · Our team is checking your documents for a Trade account.</p>';
-    return '<div class="card regc"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div class="t">บัญชีของฉัน · My account</div><button class="ab" data-reg="logout" style="margin:0">ออกจากระบบ · Log out</button></div><div class="pg" style="margin-top:4px">'+esc(m?m.name:CL.s.user)+(m&&m.username?' · @'+esc(m.username):'')+'</div>'+body+'</div>';}
+    return '<div class="card regc"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div class="t">บัญชีของฉัน · My account</div><button class="ab" data-reg="logout" style="margin:0">ออกจากระบบ · Log out</button></div><div class="pg" style="margin-top:4px">'+esc(m?m.name:CL.s.user)+(m&&m.username?' · @'+esc(m.username):(CL.s.via==="line"||(m&&m.src==="line")?' · LINE':''))+'</div>'+body+'</div>';}
   return '<div class="card regc"><div class="t">ลงทะเบียนลูกค้า · Register</div><p class="pg" style="margin:6px 0 12px">บัญชีดูราคา สมัครได้ทันที · บัญชีซื้อขาย ต้องยืนยันตัวตนด้วยรูปบัตรประชาชนและเซลฟี่คู่กับบัตร · Observe account: open at once. Trade account: verify with your ID card and a selfie holding it.</p><div class="g2" style="margin:0"><button class="pri" data-reg="open">ลงทะเบียน · Register</button><button class="pri ghost" data-reg="login">เข้าสู่ระบบ · Log in</button></div></div>';
 }
 function shot(k,lab,sub,cap){var p=RG[k];return '<div class="shot"><div><b>'+lab+'</b><small>'+sub+'</small></div><label class="shotbox">'+(p?'<img src="'+p.url+'" alt="">':'<span>📷<br>ถ่ายรูป · Take photo</span>')+'<input type="file" accept="image/*" capture="'+cap+'" data-shot="'+k+'" hidden></label></div>'}
@@ -1396,6 +1408,7 @@ function regKeep(){var v={};RGF.forEach(function(k){var e=$("rg_"+k);if(e)v[k]=e
 function regOpen(keep){
   if(!SB.cfg()){modal('<div class="t">Registration</div><p class="pg">Registration is not open yet. Please contact our sales team.</p><button class="pri" data-close style="width:100%">OK</button>');return}
   var md=RG.mode,me=CL.me||{},k=keep||{};
+  if(!keep&&md==="finish"&&CL.s&&CL.s.lname){var nm=CL.s.lname.trim().split(/\s+/);k={fn:nm[0]||"",ln:nm.slice(1).join(" ")}}
   if(!keep&&(md==="upgrade"||md==="resend")){k={c:me.company||"",i:me.idNo||"",fn:me.first||"",ln:me.last||"",ph:me.phone||"",li:me.line||""}}
   if(md==="upgrade"||(md==="resend"&&me.want==="trade"))RG.type="trade";
   if(md==="resend"&&me.want!=="trade")RG.type="observe";
@@ -1403,6 +1416,7 @@ function regOpen(keep){
   var title={new:"ลงทะเบียนลูกค้า · Register",finish:"ส่งข้อมูล · Send details",upgrade:"อัปเกรดเป็นบัญชีซื้อขาย · Upgrade to Trade",resend:"ส่งข้อมูลใหม่ · Send again"}[md];
   modal('<div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div class="t">'+title+'</div><div class="pg">เฮียอ้วนรวย โลหะกิจ · Baht Desk</div></div><button class="ab" data-close>✕</button></div>'+
   (md==="new"||md==="finish"?'<h2 style="margin-top:12px">ประเภทบัญชี · Account type</h2><div class="acct"><button data-rt="observe"'+(tr?'':' aria-pressed="true"')+'><b>บัญชีดูราคา<br>Observe</b><small>ดูราคา ขอใบเสนอราคา ใช้ได้ทันที · Prices and quotes. Open at once.</small></button><button data-rt="trade"'+(tr?' aria-pressed="true"':'')+'><b>บัญชีซื้อขาย<br>Trade</b><small>ซื้อขายได้ ต้องยืนยันตัวตน · Buy and sell. Needs ID check and approval.</small></button></div>':'')+
+  (acct&&!tr?'<button class="linebtn" data-line="1" style="margin-top:12px">'+LINE_SVG+'สมัครด้วย LINE · Sign up with LINE</button><div class="ld-or"><span>หรือ · or</span></div>':'')+
   (acct?'<h2 style="margin-top:14px">บัญชี · Account</h2><input id="rg_u" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="ชื่อผู้ใช้ · Username *" value="'+v("u")+'"><div class="pg" style="margin-top:2px">4–20 ตัว a–z 0–9 . _ · 4–20 letters, numbers, . or _</div><div class="g2" style="margin:8px 0 0"><input id="rg_pw" type="password" autocomplete="new-password" placeholder="รหัสผ่าน · Password *" value="'+v("pw")+'"><input id="rg_pw2" type="password" autocomplete="new-password" placeholder="ยืนยันรหัสผ่าน · Confirm *" value="'+v("pw2")+'"></div><div class="pg" style="margin-top:2px">อย่างน้อย 8 ตัว · At least 8 characters</div>':'')+
   (basic?'<h2 style="margin-top:14px">ข้อมูลติดต่อ · Your details</h2><div class="g2" style="margin:0"><input id="rg_fn" autocomplete="given-name" placeholder="ชื่อ · First name *" value="'+v("fn")+'"><input id="rg_ln" autocomplete="family-name" placeholder="นามสกุล · Last name *" value="'+v("ln")+'"></div><div class="g2" style="margin:8px 0 0"><input id="rg_ph" type="tel" autocomplete="tel" placeholder="เบอร์โทร · Phone *" value="'+v("ph")+'"><input id="rg_li" autocapitalize="none" placeholder="LINE ID *" value="'+v("li")+'"></div>':'')+
   (tr?'<h2 style="margin-top:14px">สำหรับบัญชีซื้อขาย · For a Trade account</h2><input id="rg_c" placeholder="ชื่อบริษัท · Company name *" value="'+v("c")+'"><input id="rg_i" inputmode="numeric" placeholder="เลขบัตรประชาชน · ID card number *" style="margin-top:8px" value="'+v("i")+'">'+
@@ -1448,7 +1462,7 @@ async function regSubmit(){
       await clFetch("/storage/v1/object/bd-kyc/"+path,{m:"POST",h:{"Content-Type":"image/jpeg","x-upsert":"false"},b:RG[k].blob});
       docs.push({name:k==="card"?"ID card.jpg":"Selfie with ID card.jpg",kind:k==="card"?"ID card picture":"Selfie with ID card",path:path,type:"image/jpeg",size:RG[k].blob.size,t:now,by:"client"})}}
     var rec=Object.assign({},me,{id:id,uid:uid,src:"self",upd:now,consent:now,want:tr?"trade":"observe",st:tr?"pending":"observe",note:""});
-    if(md==="new"||md==="finish"){rec.username=u||CL.s.user||"";rec.ts=now}
+    if(md==="new"||md==="finish"){rec.username=u||CL.s.user||"";rec.ts=now;if(CL.s.via==="line"){rec.src="line";rec.lineName=CL.s.lname||""}}
     if(fn!==null){rec.first=fn.slice(0,40);rec.last=ln.slice(0,40);rec.name=(fn+" "+ln).slice(0,80);rec.phone=ph.slice(0,20);rec.line=li.slice(0,40)}
     if(tr){rec.company=co.slice(0,80);rec.idType="บัตรประชาชน (Thai ID)";rec.idNo=idn;rec.docs=docs;rec.sent=now}
     if(md==="new"||md==="finish")await clFetch("/rest/v1/bd_kyc_req",{m:"POST",h:{"Content-Type":"application/json","Prefer":"return=minimal"},b:JSON.stringify({id:id,data:rec})});
@@ -1467,21 +1481,23 @@ document.addEventListener("click",function(e){
     else if(a==="login")loginOpen();
     else if(a==="logout"){clOut();home();landCheck()}}
   else if(e.target.id==="rg_go")regSubmit();else if(e.target.id==="lg_go")loginGo()});
+document.addEventListener("click",function(e){if(e.target.closest("[data-line]")){e.preventDefault();lineLogin()}});
+var LINE_SVG='<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="#fff" d="M12 3C6.5 3 2 6.6 2 11c0 3.9 3.5 7.2 8.3 7.9.3.1.8.2.9.5.1.3.1.7 0 1l-.1.9c0 .3-.2 1 .9.6 1.1-.5 6-3.5 8.2-6.1C21.5 14.3 22 12.7 22 11c0-4.4-4.5-8-10-8z"/></svg>';
 document.addEventListener("keydown",function(e){if(e.key==="Enter"&&(e.target.id==="lg_p"||e.target.id==="lg_u"))loginGo()});
 document.addEventListener("change",async function(e){var k=e.target.getAttribute&&e.target.getAttribute("data-shot");if(!k||!e.target.files[0])return;var m=$("rg_m");
   try{var bl=await shrink(e.target.files[0],1600);if(RG[k])URL.revokeObjectURL(RG[k].url);RG[k]={blob:bl,url:URL.createObjectURL(bl)};regOpen(regKeep())}
   catch(er){if(m){m.className="pg dn";m.textContent=er.message}}});
 if(/^#register/.test(location.hash))setTimeout(function(){if(!CL.s){RG.mode="new";regOpen()}},300);
 window.addEventListener("hashchange",function(){if(/^#register/.test(location.hash)&&!CL.s){RG.mode="new";regOpen()}});
-if(CL.s)clLoad().then(function(){if(page==="home")home()});
+if(CL.s)clLoad().then(function(){if(page==="home")home();if(CL.loaded&&!CL.me&&CL.s.via==="line"){RG.mode="finish";RG.type="observe";regOpen()}});
 
 // ---- Landing / log-in page: shown before Home until someone logs in.
 // Clients log in with their username. Staff log in with their staff email (this also connects the device to the shared book).
 // The owner on claude.ai goes straight in. Thai or English, remembered on the device.
 var LANG=ls("bd_lang")||"th";
 var LT={
-  th:{t:"เข้าสู่ระบบ",s:"ราคาทอง เงิน ทองแดง สด ๆ และซื้อขายกับ เฮียอ้วนรวย โลหะกิจ",u:"ชื่อผู้ใช้",u2:"ชื่อผู้ใช้ หรืออีเมลพนักงาน",p:"รหัสผ่าน",go:"เข้าสู่ระบบ",no:"ยังไม่มีบัญชี?",su:"สมัครสมาชิก",fg:"ลืมรหัสผ่าน? ติดต่อเจ้าหน้าที่ทาง LINE",e1:"กรุณากรอกชื่อผู้ใช้และรหัสผ่าน",e2:"ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",e3:"บัญชีนี้ไม่ใช่บัญชีพนักงาน",w:"กำลังเข้าสู่ระบบ…",obs:"บัญชีดูราคา · สมัครได้ทันที",trd:"บัญชีซื้อขาย · ยืนยันตัวตนด้วยบัตรประชาชน"},
-  en:{t:"Log in",s:"Live gold, silver and copper prices, and trading with เฮียอ้วนรวย โลหะกิจ",u:"Username",u2:"Username, or staff email",p:"Password",go:"Log in",no:"No account yet?",su:"Sign up",fg:"Forgot your password? Contact our team on LINE.",e1:"Enter your username and password.",e2:"Wrong username or password.",e3:"This is not a staff account.",w:"Logging in…",obs:"Observe account · open at once",trd:"Trade account · verify with your ID card"}};
+  th:{t:"เข้าสู่ระบบ",s:"ราคาทอง เงิน ทองแดง สด ๆ และซื้อขายกับ เฮียอ้วนรวย โลหะกิจ",u:"ชื่อผู้ใช้",u2:"ชื่อผู้ใช้ หรืออีเมลพนักงาน",p:"รหัสผ่าน",go:"เข้าสู่ระบบ",ln:"เข้าสู่ระบบด้วย LINE",le:"เข้าสู่ระบบด้วย LINE ไม่สำเร็จ",no:"ยังไม่มีบัญชี?",su:"สมัครสมาชิก",fg:"ลืมรหัสผ่าน? ติดต่อเจ้าหน้าที่ทาง LINE",e1:"กรุณากรอกชื่อผู้ใช้และรหัสผ่าน",e2:"ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",e3:"บัญชีนี้ไม่ใช่บัญชีพนักงาน",w:"กำลังเข้าสู่ระบบ…",obs:"บัญชีดูราคา · สมัครได้ทันที",trd:"บัญชีซื้อขาย · ยืนยันตัวตนด้วยบัตรประชาชน"},
+  en:{t:"Log in",s:"Live gold, silver and copper prices, and trading with เฮียอ้วนรวย โลหะกิจ",u:"Username",u2:"Username, or staff email",p:"Password",go:"Log in",ln:"Continue with LINE",le:"LINE log-in did not work",no:"No account yet?",su:"Sign up",fg:"Forgot your password? Contact our team on LINE.",e1:"Enter your username and password.",e2:"Wrong username or password.",e3:"This is not a staff account.",w:"Logging in…",obs:"Observe account · open at once",trd:"Trade account · verify with your ID card"}};
 function authed(){return isOwner||!!CL.s||SB.on()}
 function landCheck(){var el=$("p_land");if(authed()){if(el)el.remove();document.body.classList.remove("gated");return}
   if(!el){el=document.createElement("div");el.id="p_land";document.body.appendChild(el)}document.body.classList.add("gated");landRender()}
@@ -1491,8 +1507,8 @@ function landRender(){
   '<div class="card ld-card"><div class="t" style="font-size:20px">'+L.t+'</div><p class="pg" style="margin:4px 0 14px">'+L.s+'</p>'+
   '<label class="pg" for="ld_u">'+L.u+'</label><input id="ld_u" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="'+L.u2+'" value="'+esc(keepU)+'" style="margin:4px 0 10px">'+
   '<label class="pg" for="ld_p">'+L.p+'</label><input id="ld_p" type="password" autocomplete="current-password" placeholder="'+L.p+'" style="margin-top:4px">'+
-  '<div class="pg dn" id="ld_m" style="margin-top:8px"></div><button class="pri" id="ld_go" style="width:100%;margin-top:14px">'+L.go+'</button>'+
-  '<div class="ld-or"><span>'+L.no+'</span></div><button class="pri ghost" data-reg="open" style="width:100%">'+L.su+'</button>'+
+  '<div class="pg dn" id="ld_m" style="margin-top:8px">'+(LINE_ERR?esc(L.le+": "+LINE_ERR):'')+'</div><button class="pri" id="ld_go" style="width:100%;margin-top:14px">'+L.go+'</button>'+
+  '<button class="linebtn" data-line="1" style="margin-top:10px">'+LINE_SVG+L.ln+'</button><div class="ld-or"><span>'+L.no+'</span></div><button class="pri ghost" data-reg="open" style="width:100%">'+L.su+'</button>'+
   '<ul class="pg ld-acc"><li>'+L.obs+'</li><li>'+L.trd+'</li></ul>'+
   '<p class="pg" style="margin:10px 0 0;text-align:center">'+(C.co.line?'<a href="'+esc(C.co.line)+'" target="_blank" rel="noopener">'+L.fg+'</a>':L.fg)+'</p></div></div>';
 }
